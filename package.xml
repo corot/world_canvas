@@ -1,5 +1,5 @@
 <package>
-  <name>semantic_map_store</name>
+  <name>world_canvas_server</name>
   <version>0.1.0</version>
   <description>
     Storage manager for semantic maps.
@@ -8,9 +8,9 @@
   <author email="jsantossimon@gmail.com">Jorge Santos</author>
   <maintainer email="jsantossimon@gmail.com">Jorge Santos</maintainer>
   <license>BSD</license>
-  <url type="website">http://ros.org/wiki/semantic_map_store</url>
-  <url type="repository">https://github.com/corot/semantic_map_store</url>
-  <url type="bugtracker">https://github.com/corot/semantic_map_store/issues</url>
+  <url type="website">http://ros.org/wiki/world_canvas_server</url>
+  <url type="repository">https://github.com/corot/world_canvas_server</url>
+  <url type="bugtracker">https://github.com/corot/world_canvas_server/issues</url>
     
   <buildtool_depend>catkin</buildtool_depend>
   

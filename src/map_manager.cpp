@@ -304,7 +304,7 @@ int main (int argc, char** argv)
   ros::init(argc, argv, "semantic_map_manager");
   ros::NodeHandle nh;
 
-  maps_collection = new mr::MessageCollection<semantic_map_msgs::SemanticMap> ("semantic_map_store", "maps");
+  maps_collection = new mr::MessageCollection<semantic_map_msgs::SemanticMap> ("world_canvas_server", "maps");
   maps_collection -> ensureIndex("map_uuid");
 
 //  if (!nh.getParam("last_map_id", last_map))   TODO I don't think it make sense to pub last semantic map
