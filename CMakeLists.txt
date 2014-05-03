@@ -5,7 +5,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rostest
   warehouse_ros
-  semantic_map_msgs
+  world_canvas_msgs
   visualization_msgs
 )
 
@@ -13,18 +13,18 @@ catkin_package()
 
 include_directories(${catkin_INCLUDE_DIRS})
 
-#add_executable(semantic_map_saver src/map_saver.cpp)
-#add_dependencies(semantic_map_saver semantic_map_msgs_gencpp)
-#target_link_libraries(semantic_map_saver uuid ${catkin_LIBRARIES})
+#add_executable(world_canvas_saver src/map_saver.cpp)
+#add_dependencies(world_canvas_saver world_canvas_msgs_gencpp)
+#target_link_libraries(world_canvas_saver uuid ${catkin_LIBRARIES})
 
-add_executable(semantic_map_manager src/map_manager.cpp)
-add_dependencies(semantic_map_manager semantic_map_msgs_gencpp)
-target_link_libraries(semantic_map_manager uuid ${catkin_LIBRARIES})
+add_executable(world_canvas_manager src/map_manager.cpp)
+add_dependencies(world_canvas_manager world_canvas_msgs_gencpp)
+target_link_libraries(world_canvas_manager uuid ${catkin_LIBRARIES})
 
 add_rostest(test/world_canvas_server.test)
 
-install(TARGETS #semantic_map_saver
-	            semantic_map_manager
+install(TARGETS #world_canvas_saver
+	            world_canvas_manager
         RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
 install(PROGRAMS scripts/add_map.py

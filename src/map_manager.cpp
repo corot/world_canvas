@@ -60,20 +60,20 @@ service calls:
 #include <mongo_ros/message_collection.h>
 #include <ros/ros.h>
 #include <visualization_msgs/MarkerArray.h>
-#include <semantic_map_msgs/Annotation.h>
-#include <semantic_map_msgs/SemanticMap.h>
-#include <semantic_map_msgs/ListMaps.h>
-#include <semantic_map_msgs/PublishMap.h>
-#include <semantic_map_msgs/DeleteMap.h>
-#include <semantic_map_msgs/RenameMap.h>
-#include <semantic_map_msgs/SaveMap.h>
+#include <world_canvas_msgs/Annotation.h>
+#include <world_canvas_msgs/SemanticMap.h>
+#include <world_canvas_msgs/ListMaps.h>
+#include <world_canvas_msgs/PublishMap.h>
+#include <world_canvas_msgs/DeleteMap.h>
+#include <world_canvas_msgs/RenameMap.h>
+#include <world_canvas_msgs/SaveMap.h>
 
 #include <string>
 #include <sstream>
 #include <exception>
 namespace mr=mongo_ros;
 
-mr::MessageCollection<semantic_map_msgs::SemanticMap> *maps_collection;
+mr::MessageCollection<world_canvas_msgs::SemanticMap> *maps_collection;
 
 ros::Publisher map_pub;
 ros::Publisher markers_pub;
@@ -83,12 +83,12 @@ std::string pub_map_id;
 
 visualization_msgs::MarkerArray markers_array;
 
-semantic_map_msgs::SemanticMap map_msg;
+world_canvas_msgs::SemanticMap map_msg;
 
-typedef std::vector<mr::MessageWithMetadata<semantic_map_msgs::SemanticMap>::ConstPtr> MapsVector;
+typedef std::vector<mr::MessageWithMetadata<world_canvas_msgs::SemanticMap>::ConstPtr> MapsVector;
 
 
-void onMapReceived(const semantic_map_msgs::SemanticMap::ConstPtr& msg)
+void onMapReceived(const world_canvas_msgs::SemanticMap::ConstPtr& msg)
 {
   map_msg = *msg;
 }
@@ -107,7 +107,7 @@ void clearMarkers()
   }
 }
 
-visualization_msgs::Marker makeMarker(int id, const semantic_map_msgs::Annotation& ann)
+visualization_msgs::Marker makeMarker(int id, const world_canvas_msgs::Annotation& ann)
 {
   std::stringstream name; name << ann.group << '/' << ann.label;
 
@@ -142,8 +142,8 @@ visualization_msgs::Marker makeLabel(const visualization_msgs::Marker& marker)
   return label;
 }
 
-bool publishMap(semantic_map_msgs::PublishMap::Request &request,
-                semantic_map_msgs::PublishMap::Response &response)
+bool publishMap(world_canvas_msgs::PublishMap::Request &request,
+                world_canvas_msgs::PublishMap::Response &response)
 {
   ROS_INFO("Publish semantic map '%s'", request.map_uuid.c_str());
 
@@ -178,12 +178,12 @@ bool publishMap(semantic_map_msgs::PublishMap::Request &request,
 
     ROS_INFO("Semantic map fetched containing %lu annotations",
              matching_maps[0]->annotations.size());
-    map_pub.publish(semantic_map_msgs::SemanticMapConstPtr(matching_maps[0]));
+    map_pub.publish(world_canvas_msgs::SemanticMapConstPtr(matching_maps[0]));
 
     // compose and publish visualization markers
     for (int i = 0; i < matching_maps[0]->annotations.size(); ++i)
     {
-      semantic_map_msgs::Annotation ann = matching_maps[0]->annotations[i];
+      world_canvas_msgs::Annotation ann = matching_maps[0]->annotations[i];
       markers_array.markers.push_back(makeMarker(i, ann));
       markers_array.markers.push_back(makeLabel(markers_array.markers.back()));
     }
@@ -203,8 +203,8 @@ bool publishMap(semantic_map_msgs::PublishMap::Request &request,
   return true;
 }
 
-bool deleteMap(semantic_map_msgs::DeleteMap::Request &request,
-	       semantic_map_msgs::DeleteMap::Response &response)
+bool deleteMap(world_canvas_msgs::DeleteMap::Request &request,
+	       world_canvas_msgs::DeleteMap::Response &response)
 {
 //  ros::NodeHandle nh;
 //  std::string param;
@@ -235,8 +235,8 @@ bool deleteMap(semantic_map_msgs::DeleteMap::Request &request,
     // Check if we are removing currently published semantic map to "unpublish" them if so
     if (pub_map_id == request.map_uuid)
     {
-      semantic_map_msgs::PublishMap::Request pubReq;
-      semantic_map_msgs::PublishMap::Response pubRes;
+      world_canvas_msgs::PublishMap::Request pubReq;
+      world_canvas_msgs::PublishMap::Response pubRes;
       pubReq.map_uuid = request.map_uuid;
       if (publishMap(pubReq, pubRes) == false)
         ROS_WARN("Unpublish removed semantic map failed for map '%s'", request.map_uuid.c_str());
@@ -247,8 +247,8 @@ bool deleteMap(semantic_map_msgs::DeleteMap::Request &request,
   return true;
 }
 
-bool renameMap(semantic_map_msgs::RenameMap::Request &request,
-               semantic_map_msgs::RenameMap::Response &response)
+bool renameMap(world_canvas_msgs::RenameMap::Request &request,
+               world_canvas_msgs::RenameMap::Response &response)
 {
   maps_collection->modifyMetadata(mr::Query("map_uuid", request.map_uuid),
                                   mr::Metadata("map_name", request.new_name));
@@ -256,8 +256,8 @@ bool renameMap(semantic_map_msgs::RenameMap::Request &request,
 }
 
 
-bool saveMap(semantic_map_msgs::SaveMap::Request &request,
-             semantic_map_msgs::SaveMap::Response &response)
+bool saveMap(world_canvas_msgs::SaveMap::Request &request,
+             world_canvas_msgs::SaveMap::Response &response)
 {
 // TODO verify that the map exists; I need a version of the removed "lookMap"
 //  nav_msgs::GetMap srv;
@@ -281,8 +281,8 @@ bool saveMap(semantic_map_msgs::SaveMap::Request &request,
     // Check if we are modifying currently published semantic map to republish them if so
     if (pub_map_id == request.map_uuid)
     {
-      semantic_map_msgs::PublishMap::Request pubReq;
-      semantic_map_msgs::PublishMap::Response pubRes;
+      world_canvas_msgs::PublishMap::Request pubReq;
+      world_canvas_msgs::PublishMap::Response pubRes;
       pubReq.map_uuid = request.map_uuid;
       if (publishMap(pubReq, pubRes) == false)
         ROS_WARN("Republish modified semantic map failed for map '%s'", request.map_uuid.c_str());
@@ -301,10 +301,10 @@ bool saveMap(semantic_map_msgs::SaveMap::Request &request,
 
 int main (int argc, char** argv)
 {
-  ros::init(argc, argv, "semantic_map_manager");
+  ros::init(argc, argv, "world_canvas_manager");
   ros::NodeHandle nh;
 
-  maps_collection = new mr::MessageCollection<semantic_map_msgs::SemanticMap> ("world_canvas_server", "maps");
+  maps_collection = new mr::MessageCollection<world_canvas_msgs::SemanticMap> ("world_canvas_server", "maps");
   maps_collection -> ensureIndex("map_uuid");
 
 //  if (!nh.getParam("last_map_id", last_map))   TODO I don't think it make sense to pub last semantic map
@@ -312,7 +312,7 @@ int main (int argc, char** argv)
 //    last_map = "";
 //  }
 
-  map_pub = nh.advertise<semantic_map_msgs::SemanticMap> ("semantics_out", 1, true);
+  map_pub = nh.advertise<world_canvas_msgs::SemanticMap> ("semantics_out", 1, true);
 
   markers_pub = nh.advertise<visualization_msgs::MarkerArray>  ("visual_markers", 1, true);
 //  if (last_map != "")
