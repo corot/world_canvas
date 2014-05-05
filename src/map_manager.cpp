@@ -109,7 +109,7 @@ void clearMarkers()
 
 visualization_msgs::Marker makeMarker(int id, const world_canvas_msgs::Annotation& ann)
 {
-  std::stringstream name; name << ann.group << '/' << ann.label;
+  std::stringstream name; name << ann.type << '/' << ann.name;
 
   visualization_msgs::Marker marker;
   marker.header.frame_id = ann.pose.header.frame_id;
