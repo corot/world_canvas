@@ -63,6 +63,7 @@ service calls:
 #include <world_canvas_msgs/Annotation.h>
 #include <world_canvas_msgs/AnnotationData.h>
 
+#include <world_canvas_msgs/LoadAnnotationsData.h>
 #include <world_canvas_msgs/SaveAnnotationsData.h>
 
 #include <string>
@@ -209,6 +210,55 @@ visualization_msgs::Marker makeLabel(const visualization_msgs::Marker& marker)
 //  return true;
 //}
 
+bool loadAnnotationsData(world_canvas_msgs::LoadAnnotationsData::Request &request,
+                         world_canvas_msgs::LoadAnnotationsData::Response &response)
+{
+  try
+  {
+    AnnsVector matching_anns =
+        anns_collection->pullAllResults(mr::Query("map_uuid", request.map_uuid));
+
+    if (matching_anns.size() == 0)
+    {
+      ROS_INFO("No annotations found for map '%s'; we don't consider this an error",
+                request.map_uuid.c_str());
+      response.result = true;
+      return true;  // we don't consider this an error
+    }
+
+    DataVector matching_data =
+        data_collection->pullAllResults(mr::Query("map_uuid", request.map_uuid));
+
+    if (matching_anns.size() != matching_data.size())
+    {
+      // we consider this an error by now, as we assume a 1 to 1 relationship;
+      // but in future implementations this will change, probably, to a N to 1 relationship
+      ROS_ERROR("Pulled annotations and associated data don't match (%lu != %lu)",
+               matching_anns.size(), matching_data.size());
+      response.message = "Pulled annotations and associated data don't match";
+      response.result = false;
+      return false;
+    }
+
+    response.annotations.reserve(matching_anns.size());
+    response.data.reserve(matching_data.size());
+    for (int i = 0; i < matching_anns.size(); ++i)
+    {
+      response.annotations.push_back(*matching_anns[i]);
+      response.data.push_back(*matching_data[i]);
+    }
+
+    ROS_INFO("%lu annotations loaded", matching_anns.size());
+    response.result = true;
+    return true;
+  }
+  catch(const std::exception &e) {
+    ROS_ERROR("Error during query: %s", e.what());
+    response.message = e.what();
+    response.result = false;
+    return false;
+  }
+}
 
 bool saveAnnotationsData(world_canvas_msgs::SaveAnnotationsData::Request &request,
                          world_canvas_msgs::SaveAnnotationsData::Response &response)
@@ -288,7 +338,8 @@ int main (int argc, char** argv)
 //  ros::ServiceServer publish_map_srv = nh.advertiseService("publish_map", publishMap);
 //  ros::ServiceServer delete_map_srv  = nh.advertiseService("delete_map",  deleteMap);
 //  ros::ServiceServer rename_map_srv  = nh.advertiseService("rename_map",  renameMap);
-  ros::ServiceServer save_srv    = nh.advertiseService("save_annotations_data",    saveAnnotationsData);
+  ros::ServiceServer load_data_srv = nh.advertiseService("load_annotations_data", loadAnnotationsData);
+  ros::ServiceServer save_data_srv = nh.advertiseService("save_annotations_data", saveAnnotationsData);
 
 //  NOT IMPLEMENTED, and not useful by now
 //  ros::ServiceServer list_map_srv    = nh.advertiseService("list_maps",    listMap);
