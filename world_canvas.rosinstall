@@ -7,7 +7,7 @@
     version: master}
 
 # ROS required packages
-- git: {local-name: warehouse_ros, uri: 'https://github.com/ros-planning/warehouse_ros.git ',
+- git: {local-name: warehouse_ros, uri: 'https://github.com/corot/warehouse_ros.git ',
     version: master}
 
 # Map store and legacy code
