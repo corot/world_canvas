@@ -35,8 +35,8 @@ def read(filename):
         ann.color.g = 0.2
         ann.color.b = 0.2
         ann.color.a = 0.4
-        ann.size.x = float(t['length'])
-        ann.size.y = float(t['width'])
+        ann.size.x = float(t['width'])
+        ann.size.y = float(t['length'])
         ann.size.z = float(t['height'])
         ann.pose.header.frame_id = t['frame_id']
         ann.pose.header.stamp = rospy.Time.now()
