@@ -2,9 +2,10 @@
 
 import rospy
 import yaml
+import random
 import uuid
-import pickle
 import unique_id
+import cPickle as pickle
 import world_canvas_msgs.msg
 import world_canvas_msgs.srv
 
@@ -25,18 +26,19 @@ def read(filename):
     for t in yaml_data:
         ann = Annotation()
         ann.timestamp = rospy.Time.now()
-        ann.map_uuid = map_uuid
-        ann.world_id = unique_id.toMsg(uuid.UUID('urn:uuid:' + map_uuid))  #unique_id.toMsg(unique_id.fromRandom())
+        ann.world_id = unique_id.toMsg(uuid.UUID('urn:uuid:' + world_id))
         ann.id = unique_id.toMsg(unique_id.fromRandom())
         ann.name = t['name']
         ann.type = 'wall'
+        for i in range(0, random.randint(0,20)):
+            ann.keywords.append('kw'+str(i))
         ann.shape = 1 # CUBE
         ann.color.r = 0.8
         ann.color.g = 0.2
         ann.color.b = 0.2
         ann.color.a = 0.4
-        ann.size.x = float(t['length'])
-        ann.size.y = float(t['width'])
+        ann.size.x = float(t['width'])
+        ann.size.y = float(t['length'])
         ann.size.z = float(t['height'])
         ann.pose.header.frame_id = t['frame_id']
         ann.pose.header.stamp = rospy.Time.now()
@@ -66,7 +68,7 @@ def read(filename):
 
 if __name__ == '__main__':
     rospy.init_node('walls_saver')
-    map_uuid = rospy.get_param('~map_uuid')
+    world_id = rospy.get_param('~world_id')
     filename = rospy.get_param('~filename')
     anns, data = read(filename)
 
@@ -74,6 +76,6 @@ if __name__ == '__main__':
     rospy.wait_for_service('save_annotations_data')
     save_srv = rospy.ServiceProxy('save_annotations_data', world_canvas_msgs.srv.SaveAnnotationsData)
 
-#    rospy.loginfo('Saving virtual walls from ', filename,' with map uuid ',map_uuid)
-    save_srv(map_uuid, unique_id.toMsg(unique_id.fromRandom()), anns, data)
+    print 'Saving virtual walls from ', filename,' with world uuid ', world_id
+    save_srv(unique_id.toMsg(uuid.UUID('urn:uuid:' + world_id)), anns, data)
     print "Done"
