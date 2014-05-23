@@ -22,7 +22,6 @@ def read(filename):
     anns_list = []
     data_list = []
 
-
     for t in yaml_data:
         ann = Annotation()
         ann.timestamp = rospy.Time.now()
@@ -30,8 +29,11 @@ def read(filename):
         ann.id = unique_id.toMsg(unique_id.fromRandom())
         ann.name = t['name']
         ann.type = 'wall'
-        for i in range(0, random.randint(0,20)):
-            ann.keywords.append('kw'+str(i))
+        for i in range(0, random.randint(0,11)):
+            ann.keywords.append('kw'+str(random.randint(1,11)))
+        if 'prev_id' in vars():
+            ann.relationships.append(prev_id)
+        prev_id = ann.id
         ann.shape = 1 # CUBE
         ann.color.r = 0.8
         ann.color.g = 0.2
@@ -43,9 +45,7 @@ def read(filename):
         ann.pose.header.frame_id = t['frame_id']
         ann.pose.header.stamp = rospy.Time.now()
         ann.pose.pose.pose = message_converter.convert_dictionary_to_ros_message('geometry_msgs/Pose',t['pose'])
-# Querying properties
-# string[] keywords
-# uuid_msgs/UniqueID[] relationships
+
         anns_list.append(ann)
 
         object = Wall()
