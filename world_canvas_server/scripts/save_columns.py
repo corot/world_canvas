@@ -2,20 +2,52 @@
 
 import rospy
 import yaml
-import annotations_store.srv
+import random
+import uuid
+import unique_id
+import cPickle as pickle
+import world_canvas_msgs.msg
+import world_canvas_msgs.srv
 
 from geometry_msgs.msg import *
 from rospy_message_converter import message_converter
 from yocs_msgs.msg import Column, ColumnList
+from world_canvas_msgs.msg import Annotation, AnnotationData
 
 def read(filename):
     yaml_data = None 
     with open(filename) as f:
        yaml_data = yaml.load(f)
 
-    column_list = ColumnList()
+    anns_list = []
+    data_list = []
 
     for t in yaml_data:
+        ann = Annotation()
+        ann.timestamp = rospy.Time.now()
+        ann.world_id = unique_id.toMsg(uuid.UUID('urn:uuid:' + world_id))
+        ann.id = unique_id.toMsg(unique_id.fromRandom())
+        ann.name = t['name']
+        ann.type = 'column'
+        for i in range(0, random.randint(0,11)):
+            ann.keywords.append('kw'+str(random.randint(1,11)))
+        if 'prev_id' in vars():
+            ann.relationships.append(prev_id)
+        prev_id = ann.id
+        ann.shape = 3  #CYLINDER
+        ann.color.r = 0.7
+        ann.color.g = 0.7
+        ann.color.b = 0.7
+        ann.color.a = 0.4
+        ann.size.x = float(t['radius'])*2
+        ann.size.y = float(t['radius'])*2
+        ann.size.z = float(t['height'])
+        ann.pose.header.frame_id = t['frame_id']
+        ann.pose.header.stamp = rospy.Time.now()
+        ann.pose.pose.pose = message_converter.convert_dictionary_to_ros_message('geometry_msgs/Pose',t['pose'])
+
+        anns_list.append(ann)
+
         object = Column()
         object.name = t['name']
         object.radius = float(t['radius'])
@@ -23,20 +55,26 @@ def read(filename):
         object.pose.header.frame_id = t['frame_id']
         object.pose.header.stamp = rospy.Time.now()
         object.pose.pose.pose = message_converter.convert_dictionary_to_ros_message('geometry_msgs/Pose',t['pose'])
-        column_list.obstacles.append(object)
+        data = AnnotationData()
+        data.id = ann.id
+        data.data = pickle.dumps(object)
+        
+        data_list.append(data)
+        
+        print ann, object, data
     
-    return column_list
+    return anns_list, data_list
 
 if __name__ == '__main__':
     rospy.init_node('columns_saver')
-    map_uuid = rospy.get_param('~map_uuid')
+    world_id = rospy.get_param('~world_id')
     filename = rospy.get_param('~filename')
-    columns = read(filename)
+    anns, data = read(filename)
 
-    print "Waiting for save_columns service..."
-    rospy.wait_for_service('save_columns')
-    save_srv = rospy.ServiceProxy('save_columns', annotations_store.srv.SaveColumns)
+    print "Waiting for save_annotations_data service..."
+    rospy.wait_for_service('save_annotations_data')
+    save_srv = rospy.ServiceProxy('save_annotations_data', world_canvas_msgs.srv.SaveAnnotationsData)
 
-#    rospy.loginfo('Saving virtual columns from ', filename,' with map uuid ',map_uuid)
-    save_srv(map_uuid, columns)
+    print 'Saving virtual columns from ', filename,' with world uuid ', world_id
+    save_srv(unique_id.toMsg(uuid.UUID('urn:uuid:' + world_id)), anns, data)
     print "Done"
