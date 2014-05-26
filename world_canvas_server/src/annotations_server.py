@@ -34,7 +34,9 @@
 # Author: Jorge Santos
 
 import roslib; roslib.load_manifest('warehouse_ros')
+import roslib.message
 import rospy
+import pickle
 import unique_id
 import warehouse_ros as wr
 
@@ -66,6 +68,8 @@ class AnnotationsServer:
             rospy.Service('get_annotations',      GetAnnotations,     self.getAnnotations)
         self.get_data_srv = \
             rospy.Service('get_annotations_data', GetAnnotationsData, self.getAnnotationsData)
+        self.pub_data_srv = \
+            rospy.Service('pub_annotations_data', PubAnnotationsData, self.pubAnnotationsData)
         
         self.load_data_srv = \
             rospy.Service('load_annotations_data', LoadAnnotationsData, self.loadAnnotationsData)
@@ -136,6 +140,39 @@ class AnnotationsServer:
                     rospy.loginfo("No annotations data found for query %s", query)  # we don't consider this an error
                 else:
                     rospy.loginfo("%d objects found for %d annotations", i, len(request.annotation_ids))
+                break
+
+        response.result = True
+        return response
+        
+    def pubAnnotationsData(self, request):
+        response = PubAnnotationsDataResponse()
+        
+        query = {'id': {'$in': [unique_id.toHexString(id) for id in request.annotation_ids]}}                
+        matching_data = self.data_collection.query(query)
+
+        topic_class = roslib.message.get_message_class(request.topic_type)
+        pub = rospy.Publisher(request.topic_name, topic_class, latch = True)
+    
+        i = 0
+        object_list = list()
+        while True:
+            try:
+                ann_data = matching_data.next()[0]
+                object = pickle.loads(ann_data.data)
+                if request.pub_as_list:
+                    object_list.append(object)
+                else:
+                    pub.publish(object)
+                    
+                i += 1
+            except StopIteration:
+                if (i == 0):
+                    rospy.loginfo("No annotations data found for query %s", query)  # we don't consider this an error
+                else:
+                    rospy.loginfo("%d objects found for %d annotations", i, len(request.annotation_ids))
+                    if request.pub_as_list:
+                        pub.publish(object_list)
                 break
 
         response.result = True

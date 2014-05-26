@@ -18,6 +18,13 @@ from visualization_msgs.msg import Marker, MarkerArray
 
 
 def publish(anns, data):
+    # Advertise topics for retrieved annotations and their visualization markers
+    topic_class = roslib.message.get_message_class(topic_type)
+     
+    marker_pub = rospy.Publisher(topic_name + '_markers', MarkerArray, latch = True)
+    object_pub = rospy.Publisher(topic_name + '_client',  topic_class, latch = True)
+
+    # Process retrieved data to build annotations and markers lists
     object_list = list()
     marker_list = MarkerArray()    
 
@@ -45,14 +52,15 @@ def publish(anns, data):
 
         marker_id = marker_id + 1
 
-    topic_class = roslib.message.get_message_class(topic_type)
-     
-    marker_pub = rospy.Publisher(topic_name + '_markers', MarkerArray, latch = True)
-    object_pub = rospy.Publisher(topic_name,              topic_class, latch = True)
- 
     marker_pub.publish(marker_list)
-    object_pub.publish(object_list)
-    
+
+    # Publish resulting lists
+    if pub_as_list:
+        object_pub.publish(object_list)
+    else:
+        # if pub_as_list is false, publish objects one by one
+        for object in object_list:
+            object_pub.publish(object)
     
 # Other ways to do the same: not using ros magic
 #     module_name, class_name = topic_type.rsplit(".", 1)
@@ -65,17 +73,16 @@ def publish(anns, data):
 
     return
 
-def callback(self, m):
-    return
-
 if __name__ == '__main__':
     rospy.init_node('objects_loader')
-    topic_name = rospy.get_param('~topic_name', 'annotations')
-    topic_type = rospy.get_param('~topic_type')
+    topic_name  = rospy.get_param('~topic_name', 'annotations')
+    topic_type  = rospy.get_param('~topic_type')
+    pub_as_list = rospy.get_param('~pub_as_list', False)
     world_id = rospy.get_param('~world_id')
     ids      = rospy.get_param('~ids', [])
     types    = rospy.get_param('~types', [])
     keywords = rospy.get_param('~keywords', [])
+    related  = rospy.get_param('~relationships', [])
 
     rospy.loginfo("Waiting for get_annotations service...")
     rospy.wait_for_service('get_annotations')
@@ -84,7 +91,7 @@ if __name__ == '__main__':
     get_anns_srv = rospy.ServiceProxy('get_annotations', world_canvas_msgs.srv.GetAnnotations)
     respAnns = get_anns_srv(unique_id.toMsg(uuid.UUID('urn:uuid:' + world_id)),
                            [unique_id.toMsg(uuid.UUID('urn:uuid:' + id)) for id in ids],
-                            types, keywords, [], [], [])
+                            types, keywords, [], [], [], related)
 
     if len(respAnns.annotations) > 0:
         rospy.loginfo('Publishing visualization markers for %d retrieved annotations...',
@@ -102,6 +109,10 @@ if __name__ == '__main__':
         publish(respAnns.annotations, respData.data)
     else:
         rospy.logwarn('No data found for the %d retrieved annotations', len(respAnns.annotations))
-        
+
+    rospy.loginfo('Requesting server to also publish the same data')
+    pub_data_srv = rospy.ServiceProxy('pub_annotations_data', world_canvas_msgs.srv.PubAnnotationsData)
+    respData = pub_data_srv([a.id for a in respAnns.annotations], topic_name, topic_type, pub_as_list)
+
     rospy.loginfo("Done")
     rospy.spin()
