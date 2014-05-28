@@ -4,8 +4,8 @@ import rospy
 import yaml
 import uuid
 import copy
-import pickle
 import unique_id
+import cPickle as pickle
 import world_canvas_msgs.msg
 import world_canvas_msgs.srv
 

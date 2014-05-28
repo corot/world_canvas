@@ -36,8 +36,8 @@
 import roslib; roslib.load_manifest('warehouse_ros')
 import roslib.message
 import rospy
-import pickle
 import unique_id
+import cPickle as pickle
 import warehouse_ros as wr
 
 from world_canvas_msgs.msg import *
