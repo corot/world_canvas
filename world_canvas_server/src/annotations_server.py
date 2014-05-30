@@ -49,7 +49,8 @@ class AnnotationsServer:
     ##########################################################################
     # Constants
     ##########################################################################
-    MAX_KEYWORDS = 10
+    MAX_KEYWORDS      = 10
+    MAX_RELATIONSHIPS = 10
     
     ##########################################################################
     # Initialization
@@ -83,16 +84,23 @@ class AnnotationsServer:
 
         response = GetAnnotationsResponse()
         
-        query = {'world_id': {'$in': [unique_id.toHexString(request.world_id)]}}
+        query = {'$and':[]}
+        query['$and'].append({'world_id': {'$in': [unique_id.toHexString(request.world_id)]}})
         if len(request.ids) > 0:
-            query['id'] = {'$in': [unique_id.toHexString(id) for id in request.ids]}
+            query['$and'].append({'id': {'$in': [unique_id.toHexString(id) for id in request.ids]}})
         if len(request.types) > 0:
-            query['type'] = {'$in': request.types}
+            query['$and'].append({'type': {'$in': request.types}})
         if len(request.keywords) > 0:
-            query['$or'] = []
+            keywords = []
             for i in range(1, self.MAX_KEYWORDS):
-                query['$or'].append({'keyword' + str(i): {'$in': request.keywords}})
-                
+                keywords.append({'keyword' + str(i): {'$in': request.keywords}})
+            query['$and'].append({'$or': keywords})
+        if len(request.relationships) > 0:
+            relationships = []
+            for i in range(1, self.MAX_RELATIONSHIPS):
+                relationships.append({'relationship' + str(i): {'$in': [unique_id.toHexString(r) for r in request.relationships]}})
+            query['$and'].append({'$or': relationships})
+
         matching_anns = self.anns_collection.query(query)            
 
         i = 0
@@ -233,13 +241,19 @@ class AnnotationsServer:
             for i, kw in enumerate(annotation.keywords):
                 if i >= self.MAX_KEYWORDS:
                     rospy.logwarn('Only %d keywords can be stored; the other %d will be discarded',
-                                   self.MAX_KEYWORDS, len(annotation.keywords) - self.MAX_KEYWORDS)
+                                   self.MAX_KEYWORDS, len(annotation.relationships) - self.MAX_KEYWORDS)
                     break
                 metadata['keyword' + str(i + 1)] = kw
+
+            for i, rel in enumerate(annotation.relationships):
+                if i >= self.MAX_RELATIONSHIPS:
+                    rospy.logwarn('Only %d relationships can be stored; the other %d will be discarded',
+                                   self.MAX_RELATIONSHIPS, len(annotation.relationships) - self.MAX_RELATIONSHIPS)
+                    break
+                metadata['relationship' + str(i + 1)] = unique_id.toHexString(rel)
             
             rospy.logdebug("Saving annotation %s for map %s", annotation.id, annotation.world_id)
 
-            ###mr::Query q = mr::Query().append("world_id", annotation.world_id).append("id", annotation.id)
             self.anns_collection.remove({'id': {'$in': [unique_id.toHexString(annotation.id)]}})
             self.anns_collection.insert(annotation, metadata)
             self.data_collection.remove({'id': {'$in': [unique_id.toHexString(annotation.id)]}})
