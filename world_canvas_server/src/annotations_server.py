@@ -40,6 +40,8 @@ import unique_id
 import cPickle as pickle
 import warehouse_ros as wr
 
+from yaml_database import *
+
 from world_canvas_msgs.msg import *
 from world_canvas_msgs.srv import *
 
@@ -81,6 +83,13 @@ class AnnotationsServer:
             rospy.Service('set_keyword',      SetKeyword,      self.setKeyword)
         self.set_related_srv = \
             rospy.Service('set_relationship', SetRelationship, self.setRelationship)
+
+        # Configure import from/export to YAML file
+        self.yaml_db = YAMLDatabase(self.anns_collection, self.data_collection)
+        self.import_srv = \
+            rospy.Service('yaml_import', YAMLImport, self.yaml_db.importFromYAML)
+        self.export_srv = \
+            rospy.Service('yaml_export', YAMLExport, self.yaml_db.exportToYAML)
 
         rospy.loginfo("Annotations server : initialized.")
 
@@ -259,6 +268,8 @@ class AnnotationsServer:
             
             rospy.logdebug("Saving annotation %s for map %s", annotation.id, annotation.world_id)
 
+            # Insert both annotation and associated data to the appropriate collection
+            # TODO: using by now the same metadata for both, while data only need annotation id
             self.anns_collection.remove({'id': {'$in': [unique_id.toHexString(annotation.id)]}})
             self.anns_collection.insert(annotation, metadata)
             self.data_collection.remove({'id': {'$in': [unique_id.toHexString(annotation.id)]}})
