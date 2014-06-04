@@ -12,7 +12,7 @@ if __name__ == '__main__':
     rospy.init_node('set_relationship')
     
     id      = rospy.get_param('~id')
-    related = rospy.get_param('~related')
+    related = rospy.get_param('~relationship')
     action  = rospy.get_param('~action')
 
     rospy.loginfo("Waiting for set_relationship service...")
