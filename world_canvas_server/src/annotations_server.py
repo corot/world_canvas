@@ -47,12 +47,6 @@ from world_canvas_msgs.srv import *
 
 
 class AnnotationsServer:
-
-    ##########################################################################
-    # Constants
-    ##########################################################################
-    MAX_KEYWORDS      = 10
-    MAX_RELATIONSHIPS = 10
     
     ##########################################################################
     # Initialization
@@ -105,15 +99,9 @@ class AnnotationsServer:
         if len(request.types) > 0:
             query['$and'].append({'type': {'$in': request.types}})
         if len(request.keywords) > 0:
-            keywords = []
-            for i in range(1, self.MAX_KEYWORDS + 1):
-                keywords.append({'keyword' + str(i): {'$in': request.keywords}})
-            query['$and'].append({'$or': keywords})
+            query['$and'].append({'keywords': {'$in': request.keywords}})
         if len(request.relationships) > 0:
-            relationships = []
-            for i in range(1, self.MAX_RELATIONSHIPS + 1):
-                relationships.append({'relationship' + str(i): {'$in': [unique_id.toHexString(r) for r in request.relationships]}})
-            query['$and'].append({'$or': relationships})
+            query['$and'].append({'relationships': {'$in': [unique_id.toHexString(r) for r in request.relationships]}})
 
         matching_anns = self.anns_collection.query(query)            
 
@@ -247,25 +235,19 @@ class AnnotationsServer:
         for i, annotation in enumerate(request.annotations):
             data = request.data[i]
             
+            # Compose metadata: mandatory fields
             metadata = { 'world_id': unique_id.toHexString(annotation.world_id),
                          'id'      : unique_id.toHexString(annotation.id),
                          'name'    : annotation.name,
-                         'type'    : annotation.type 
+                         'type'    : annotation.type,
                        }
-            for i, kw in enumerate(annotation.keywords):
-                if i >= self.MAX_KEYWORDS:
-                    rospy.logwarn('Only %d keywords can be stored; the other %d will be discarded',
-                                   self.MAX_KEYWORDS, len(annotation.relationships) - self.MAX_KEYWORDS)
-                    break
-                metadata['keyword' + str(i + 1)] = kw
 
-            for i, rel in enumerate(annotation.relationships):
-                if i >= self.MAX_RELATIONSHIPS:
-                    rospy.logwarn('Only %d relationships can be stored; the other %d will be discarded',
-                                   self.MAX_RELATIONSHIPS, len(annotation.relationships) - self.MAX_RELATIONSHIPS)
-                    break
-                metadata['relationship' + str(i + 1)] = unique_id.toHexString(rel)
-            
+            # Optional fields; note that both are stored as lists of strings
+            if len(annotation.keywords) > 0:
+                metadata['keywords'] = annotation.keywords
+            if len(annotation.relationships) > 0:
+                metadata['relationships'] = [unique_id.toHexString(r) for r in annotation.relationships]
+
             rospy.logdebug("Saving annotation %s for map %s", annotation.id, annotation.world_id)
 
             # Insert both annotation and associated data to the appropriate collection
@@ -281,130 +263,103 @@ class AnnotationsServer:
 
     def setKeyword(self, request):
         response = SetKeywordResponse()
-
-        # Sanity check so we avoid extra if else clauses later
-        if request.action != SetKeywordRequest.DEL and request.action != SetKeywordRequest.ADD:
-            rospy.logerr('Invalid action %d', request.action)
-            response.message = 'Invalid action' 
-            response.result = False
-            return response
-
-        # Get metadata for the given annotation id
-        annot_id = unique_id.toHexString(request.id)
-        matching_anns = self.anns_collection.query({'id': {'$in': [unique_id.toHexString(request.id)]}})
-
-        try:
-            metadata = matching_anns.next()[1]
-        except StopIteration:
-            rospy.logwarn("Annotation %s not found", annot_id)
+        annot_id, metadata = self.getMetadata(request.id)
+        
+        if metadata is None:
             response.message = 'Annotation not found' 
             response.result = False
             return response
 
-        # Look on metadata for the target keyword
-        first_empty = None
-        for i in range(1, self.MAX_KEYWORDS + 1):
-            if first_empty is None and metadata.get('keyword' + str(i)) is None:
-                # Found the first empty space on keywordN sequence; useful later
-                first_empty = i
-            elif metadata.get('keyword' + str(i)) == request.keyword:
-                # Found the requested keyword; according to requested action...
-                if request.action == SetKeywordRequest.DEL:
-                    # ...remove from metadata
-                    metadata.pop('keyword' + str(i), None)
-                    self.anns_collection.update(metadata)
-                    rospy.loginfo("Keyword %s deleted for annotation %s", request.keyword, annot_id)
-                else:
-                    # ...nothing to do on SET; already present
-                    rospy.loginfo("Keyword %s already set on annotation %s", request.keyword, annot_id)
-
-                response.result = True
-                return response
-
-        # Requested keyword not found
-        if request.action == SetKeywordRequest.DEL:
-            response.message = 'Keyword not found' 
-            response.result = False
-            return response
-        elif first_empty is None:
-            # There are not empty spaces on keywordN sequence; cannot add requested keyword
-            rospy.logerr('Keywords maximum number (%d) reached; ignoring new keyword %s',
-                         self.MAX_KEYWORDS, request.keyword)
-            response.message = 'Keywords capacity exceeded' 
-            response.result = False
-            return response
+        if request.action == SetKeywordRequest.ADD:
+            return self.addElement(annot_id, request.keyword, metadata, 'keywords', response)
+        elif request.action == SetKeywordRequest.DEL:
+            return self.delElement(annot_id, request.keyword, metadata, 'keywords', response)
         else:
-            # SET action: Add the new keyword to metadata 
-            metadata['keyword' + str(first_empty)] = request.keyword
-            self.anns_collection.update(metadata)
-            rospy.loginfo("Keyword %s added for annotation %s", request.keyword, annot_id)
-            response.result = True
+            # Sanity check against crazy service clients
+            rospy.logerr('Invalid action %d', request.action)
+            response.message = 'Invalid action' 
+            response.result = False
             return response
 
 
     def setRelationship(self, request):
         response = SetRelationshipResponse()
+        annot_id, metadata = self.getMetadata(request.id)
+        relat_id = unique_id.toHexString(request.relationship)
+        
+        if metadata is None:
+            response.message = 'Annotation not found' 
+            response.result = False
+            return response
 
-        # Sanity check so we avoid extra if else clauses later
-        if (request.action != SetRelationshipRequest.DEL and
-            request.action != SetRelationshipRequest.ADD):
+        if request.action == SetRelationshipRequest.ADD:
+            return self.addElement(annot_id, relat_id, metadata, 'relationships', response)
+        elif request.action == SetRelationshipRequest.DEL:
+            return self.delElement(annot_id, relat_id, metadata, 'relationships', response)
+        else:
+            # Sanity check against crazy service clients
             rospy.logerr('Invalid action %d', request.action)
             response.message = 'Invalid action' 
             response.result = False
             return response
 
-        # Get metadata for the given annotation id
-        annot_id = unique_id.toHexString(request.id)
-        relat_id = unique_id.toHexString(request.relationship)
-        matching_anns = self.anns_collection.query({'id': {'$in': [unique_id.toHexString(request.id)]}})
 
-        try:
-            metadata = matching_anns.next()[1]
-        except StopIteration:
-            rospy.logwarn("Annotation %s not found", annot_id)
-            response.message = 'Annotation not found' 
-            response.result = False
-            return response
+    def addElement(self, annot_id, element, metadata, md_field, response):
 
-        # Look on metadata for the target relationship
-        first_empty = None
-        for i in range(1, self.MAX_RELATIONSHIPS + 1):
-            if first_empty is None and metadata.get('relationship' + str(i)) is None:
-                # Found the first empty space on relationshipN sequence; useful later
-                first_empty = i
-            elif metadata.get('relationship' + str(i)) == relat_id:
-                # Found the requested relationship; according to requested action...
-                if request.action == SetRelationshipRequest.DEL:
-                    # ...remove from metadata
-                    metadata.pop('relationship' + str(i), None)
-                    self.anns_collection.update(metadata)
-                    rospy.loginfo("Relationship %s deleted for annotation %s", relat_id, annot_id)
-                else:
-                    # ...nothing to do on SET; already present
-                    rospy.loginfo("Relationship %s already set on annotation %s", relat_id, annot_id)
+        # Look on metadata for md_field field, for the target element
+        field = metadata.get(md_field)
 
-                response.result = True
-                return response
+        # Add the new element to metadata field 
+        if field is None:
+            field = []
+        if element not in field:
+            field.append(element)
+            metadata[md_field] = field
+            self.anns_collection.update(metadata)
+            rospy.loginfo("%s added to %s for annotation %s", element, md_field, annot_id)
+        else:
+            # Already present; nothing to do (not an error)
+            rospy.loginfo("%s already set on %s for annotation %s", element, md_field, annot_id)
 
-        # Requested relationship not found
-        if request.action == SetRelationshipRequest.DEL:
-            response.message = 'Relationship not found' 
-            response.result = False
-            return response
-        elif first_empty is None:
-            # There are not empty spaces on relationshipN sequence; cannot add the requested one
-            rospy.logerr('Relationships maximum number (%d) reached; ignoring new relationship %s',
-                         self.MAX_RELATIONSHIPS, relat_id)
-            response.message = 'Relationships capacity exceeded' 
+        response.result = True
+        return response
+
+    def delElement(self, annot_id, element, metadata, md_field, response):
+        # Look on metadata for md_field field, for the target element
+        field = metadata.get(md_field)
+
+        # Remove the element from metadata field, if already present 
+        if field is None or element not in field:
+            # Requested element not found; nothing to do, but we answer as error
+            rospy.logerr("%s not found on %s for annotation %s", element, md_field, annot_id)
+            response.message = element + ' not found'
             response.result = False
             return response
         else:
-            # SET action: Add the new relationship to metadata 
-            metadata['relationship' + str(first_empty)] = relat_id
+            # Found the requested element; remove from metadata
+            rospy.loginfo("%s deleted on %s for annotation %s", element, md_field, annot_id)
+            field.remove(element)
+            if len(field) == 0:
+                del metadata[md_field]
+            else:
+                metadata[md_field] = field
             self.anns_collection.update(metadata)
-            rospy.loginfo("Relationship %s added for annotation %s", relat_id, annot_id)
-            response.result = True
-            return response
+
+        # No error so return success
+        response.result = True
+        return response
+
+
+    def getMetadata(self, uuid):
+        # Get metadata for the given annotation id
+        annot_id = unique_id.toHexString(uuid)
+        matching_anns = self.anns_collection.query({'id': {'$in': [annot_id]}})
+
+        try:
+            return annot_id, matching_anns.next()[1]
+        except StopIteration:
+            rospy.logwarn("Annotation %s not found", annot_id)
+            return annot_id, None
 
 
 if __name__ == "__main__":
