@@ -51,6 +51,7 @@ class AnnotationsServer:
     ##########################################################################
     # Initialization
     ##########################################################################
+
     def __init__(self):
         # Set up collections
         self.anns_collection = \
@@ -88,6 +89,10 @@ class AnnotationsServer:
         rospy.loginfo("Annotations server : initialized.")
 
 
+    ##########################################################################
+    # Services callbacks
+    ##########################################################################
+
     def getAnnotations(self, request):
 
         response = GetAnnotationsResponse()
@@ -112,7 +117,7 @@ class AnnotationsServer:
                 i += 1
             except StopIteration:
                 if (i == 0):
-                    rospy.loginfo("No annotations found for query %s", query)
+                    rospy.loginfo("No annotations found for query %s" % query)
                     response.result = True  # we don't consider this an error
                     return response
                 break
@@ -130,7 +135,7 @@ class AnnotationsServer:
 #         response.annotations = matching_anns
 #         response.data        = matching_data
     
-        rospy.loginfo("%lu annotations loaded", i)
+        rospy.loginfo("%lu annotations loaded" % i)
         response.result = True
         return response
         
@@ -147,9 +152,9 @@ class AnnotationsServer:
                 i += 1
             except StopIteration:
                 if (i == 0):
-                    rospy.loginfo("No annotations data found for query %s", query)  # we don't consider this an error
+                    rospy.loginfo("No annotations data found for query %s" % query)  # we don't consider this an error
                 else:
-                    rospy.loginfo("%d objects found for %d annotations", i, len(request.annotation_ids))
+                    rospy.loginfo("%d objects found for %d annotations" % (i, len(request.annotation_ids)))
                 break
 
         response.result = True
@@ -178,9 +183,9 @@ class AnnotationsServer:
                 i += 1
             except StopIteration:
                 if (i == 0):
-                    rospy.loginfo("No annotations data found for query %s", query)  # we don't consider this an error
+                    rospy.loginfo("No annotations data found for query %s" % query)  # we don't consider this an error
                 else:
-                    rospy.loginfo("%d objects found for %d annotations", i, len(request.annotation_ids))
+                    rospy.loginfo("%d objects found for %d annotations" % (i, len(request.annotation_ids)))
                     if request.pub_as_list:
                         pub.publish(object_list)
                 break
@@ -205,8 +210,8 @@ class AnnotationsServer:
                 i += 1
             except StopIteration:
                 if (i == 0):
-                    rospy.loginfo("No annotations found for map '%s'; we don't consider this an error",
-                              request.world_id)
+                    rospy.loginfo("No annotations found for map '%s'; we don't consider this an error"
+                                   % request.world_id)
                     response.result = True  # we don't consider this an error
                     return response
                 break
@@ -224,7 +229,7 @@ class AnnotationsServer:
 #         response.annotations = matching_anns
 #         response.data        = matching_data
     
-        rospy.loginfo("%lu annotations loaded", i)
+        rospy.loginfo("%lu annotations loaded" % i)
         response.result = True
         return response
 
@@ -248,7 +253,7 @@ class AnnotationsServer:
             if len(annotation.relationships) > 0:
                 metadata['relationships'] = [unique_id.toHexString(r) for r in annotation.relationships]
 
-            rospy.logdebug("Saving annotation %s for map %s", annotation.id, annotation.world_id)
+            rospy.logdebug("Saving annotation %s for map %s" % (annotation.id, annotation.world_id))
 
             # Insert both annotation and associated data to the appropriate collection
             # TODO: using by now the same metadata for both, while data only need annotation id
@@ -257,7 +262,7 @@ class AnnotationsServer:
             self.data_collection.remove({'id': {'$in': [unique_id.toHexString(annotation.id)]}})
             self.data_collection.insert(data, metadata)
 
-        rospy.loginfo("%lu annotations saved", len(request.annotations))
+        rospy.loginfo("%lu annotations saved" % len(request.annotations))
         response.result = True
         return response
 
@@ -277,7 +282,7 @@ class AnnotationsServer:
         else:
             # Sanity check against crazy service clients
             rospy.logerr('Invalid action %d', request.action)
-            response.message = 'Invalid action' 
+            response.message = 'Invalid action: %d' % request.action
             response.result = False
             return response
 
@@ -298,8 +303,8 @@ class AnnotationsServer:
             return self.delElement(annot_id, relat_id, metadata, 'relationships', response)
         else:
             # Sanity check against crazy service clients
-            rospy.logerr('Invalid action %d', request.action)
-            response.message = 'Invalid action' 
+            rospy.logerr('Invalid action: %d' % request.action)
+            response.message = 'Invalid action: %d' % request.action
             response.result = False
             return response
 
@@ -316,10 +321,10 @@ class AnnotationsServer:
             field.append(element)
             metadata[md_field] = field
             self.anns_collection.update(metadata)
-            rospy.loginfo("%s added to %s for annotation %s", element, md_field, annot_id)
+            rospy.loginfo("%s added to %s for annotation %s" % (element, md_field, annot_id))
         else:
             # Already present; nothing to do (not an error)
-            rospy.loginfo("%s already set on %s for annotation %s", element, md_field, annot_id)
+            rospy.loginfo("%s already set on %s for annotation %s" % (element, md_field, annot_id))
 
         response.result = True
         return response
@@ -331,13 +336,13 @@ class AnnotationsServer:
         # Remove the element from metadata field, if already present 
         if field is None or element not in field:
             # Requested element not found; nothing to do, but we answer as error
-            rospy.logerr("%s not found on %s for annotation %s", element, md_field, annot_id)
+            rospy.logerr("%s not found on %s for annotation %s" % (element, md_field, annot_id))
             response.message = element + ' not found'
             response.result = False
             return response
         else:
             # Found the requested element; remove from metadata
-            rospy.loginfo("%s deleted on %s for annotation %s", element, md_field, annot_id)
+            rospy.loginfo("%s deleted on %s for annotation %s" % (element, md_field, annot_id))
             field.remove(element)
             if len(field) == 0:
                 del metadata[md_field]
@@ -358,7 +363,7 @@ class AnnotationsServer:
         try:
             return annot_id, matching_anns.next()[1]
         except StopIteration:
-            rospy.logwarn("Annotation %s not found", annot_id)
+            rospy.logwarn("Annotation %s not found" % annot_id)
             return annot_id, None
 
 
