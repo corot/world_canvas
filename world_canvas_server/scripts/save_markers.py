@@ -28,7 +28,7 @@ def read(filename):
         ann.world_id = unique_id.toMsg(uuid.UUID('urn:uuid:' + world_id))
         ann.id = unique_id.toMsg(unique_id.fromRandom())
         ann.name = t['name']
-        ann.type = 'ar_marker'
+        ann.type = 'ar_track_alvar/AlvarMarker'
         for i in range(0, random.randint(0,11)):
             ann.keywords.append('kw'+str(random.randint(1,11)))
         # if 'prev_id' in vars():
