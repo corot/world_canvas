@@ -53,7 +53,10 @@ class AnnotationsServer:
     ##########################################################################
 
     def __init__(self):
-        # Set up collections
+        # Set up collections: for every annotation, we store a couple of Annotation and AnnotationData
+        # messages, the second containing the annotation id and a serialized representation of a message
+        # of type annotation.type (data field)
+        # TODO following issue #1, we must go for N-1 implementation instead of 1-1 as we have now
         self.anns_collection = \
             wr.MessageCollection("world_canvas", "annotations", Annotation)
         self.anns_collection.ensure_index("id")
@@ -62,6 +65,7 @@ class AnnotationsServer:
             wr.MessageCollection("world_canvas", "annotations_data", AnnotationData)
         self.data_collection.ensure_index("id")
         
+        # Set up services
         self.get_anns_srv = \
             rospy.Service('get_annotations',      GetAnnotations,     self.getAnnotations)
         self.get_data_srv = \
@@ -79,7 +83,7 @@ class AnnotationsServer:
         self.set_related_srv = \
             rospy.Service('set_relationship', SetRelationship, self.setRelationship)
 
-        # Configure import from/export to YAML file
+        # Configure services for import from/export to YAML file
         self.yaml_db = YAMLDatabase(self.anns_collection, self.data_collection)
         self.import_srv = \
             rospy.Service('yaml_import', YAMLImport, self.yaml_db.importFromYAML)
@@ -97,6 +101,9 @@ class AnnotationsServer:
 
         response = GetAnnotationsResponse()
         
+        # Compose query concatenating filter criteria in an '$and' operator
+        # Keywords and relationships are lists: operator '$in' makes a N to N matching
+        # Empty fields are ignored
         query = {'$and':[]}
         query['$and'].append({'world_id': {'$in': [unique_id.toHexString(request.world_id)]}})
         if len(request.ids) > 0:
@@ -108,6 +115,7 @@ class AnnotationsServer:
         if len(request.relationships) > 0:
             query['$and'].append({'relationships': {'$in': [unique_id.toHexString(r) for r in request.relationships]}})
 
+        # Execute the query and retrieve results
         matching_anns = self.anns_collection.query(query)            
 
         i = 0
@@ -173,6 +181,7 @@ class AnnotationsServer:
         object_list = list()
         while True:
             try:
+                # Get annotation data and deserialize data field to get the original message of type request.topic_type
                 ann_data = matching_data.next()[0]
                 object = pickle.loads(ann_data.data)
                 if request.pub_as_list:
@@ -195,7 +204,12 @@ class AnnotationsServer:
         
         
     def loadAnnotationsData(self, request):
+        '''
+          Legacy method kept for debug purposes: loads together annotations and its data
+          assuming a 1-1 relationship.
 
+          :param request: Service request.
+        '''
         response = LoadAnnotationsDataResponse()
         
         query = {'world_id': {'$in': [unique_id.toHexString(request.world_id)]}}
@@ -234,6 +248,12 @@ class AnnotationsServer:
         return response
 
     def saveAnnotationsData(self, request):
+        '''
+          Legacy method kept for debug purposes: saves together annotations and its data
+          assuming a 1-1 relationship.
+
+          :param request: Service request.
+        '''
         response = SaveAnnotationsDataResponse()
 
         print request.annotations
@@ -257,6 +277,7 @@ class AnnotationsServer:
 
             # Insert both annotation and associated data to the appropriate collection
             # TODO: using by now the same metadata for both, while data only need annotation id
+            # WARN WARN WARN: setKeyword and setRelationship only operate on annotations metadata!
             self.anns_collection.remove({'id': {'$in': [unique_id.toHexString(annotation.id)]}})
             self.anns_collection.insert(annotation, metadata)
             self.data_collection.remove({'id': {'$in': [unique_id.toHexString(annotation.id)]}})
