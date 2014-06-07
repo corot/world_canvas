@@ -11,10 +11,11 @@ Give it a fast try
 
 **Prerequirements**
 
-Install pymongo, the interface we use to access to mongo database:
+Install mongo database and pymongo, the interface we use to access it:
 
 ```
-pip install pymongo
+sudo apt-get install mongodb
+sudo pip install pymongo
 ```
 
 **Installing**
