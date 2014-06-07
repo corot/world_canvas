@@ -9,7 +9,19 @@ World canvas server is a storage manager for semantic maps. Initial version repl
 Give it a fast try
 ------------------
 
+**Prerequirements**
+
+Install pymongo, the interface we use to access to mongo database:
+
+```
+pip install pymongo
+```
+
+**Installing**
+
 Use world_canvas.rosinstall to create a world_canvas workspace.
+
+**Running**
 
 First of all, launch the annotations server (the Python version)
 
