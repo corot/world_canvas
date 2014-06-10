@@ -111,6 +111,7 @@ class YAMLDatabase:
         
     #                     self.anns_collection.remove({'id': {'$in': [unique_id.toHexString(annotation.id)]}})
                 # TODO: using by now the same metadata for both, while data only need annotation id
+                
                 self.anns_collection.insert(annotation, metadata)
             except (genpy.MessageException, genpy.message.SerializationError) as e:
                 return self.serviceError(response, "Invalid annotation msg format: %s" % str(e))
@@ -152,7 +153,7 @@ class YAMLDatabase:
 
         try:
             with open(request.filename, 'w') as f:
-                i = 0
+                entries = []
                 while True:
                     try:
                         a = matching_anns.next()[0]
@@ -162,23 +163,27 @@ class YAMLDatabase:
                             annotation = yaml.load(genpy.message.strify_message(a)),
                             data = yaml.load(genpy.message.strify_message(pickle.loads(d.data)))
                         )
-                        
-                        # default_flow_style = False writes lists with an element per-line, (with -),
-                        # what makes the output very long and not very readable. Method flowStyleLists
-                        # makes uuids and covariances list flow-styled, i.e. [x, y, z, ...]
-                        dump = yaml.dump(entry, default_flow_style = False)
-                        dump = self.flowStyleLists(dump)
-                        f.write(dump)
-                        i += 1
+                        entries.append(entry)
                     except StopIteration:
-                        if (i == 0):
-                            # we don't consider this an error
-                            return self.serviceSuccess(response, "Database is empty!; nothing to export")
                         break
+
+                if len(entries) == 0:
+                    # we don't consider this an error
+                    return self.serviceSuccess(response, "Database is empty!; nothing to export")
+                else:
+                    # default_flow_style = False writes lists with an element per-line, (with -),
+                    # what makes the output very long and not very readable. Method flowStyleLists
+                    # makes uuids and covariances list flow-styled, i.e. [x, y, z, ...]
+                    dump = yaml.dump(entries, default_flow_style = False)
+                    dump = self.flowStyleLists(dump)
+                    
+                    # Add a decimal point to exponential formated floats; if not, get loaded as strings,
+                    # due to a bug in pyyaml. See this ticket for details: http://pyyaml.org/ticket/359
+                    dump = self.removeExp(dump)
+                    f.write(dump)
+                    return self.serviceSuccess(response, "%lu annotations exported from database" % len(entries))
         except Exception as e:
             return self.serviceError(response, "Export to file failed: %s" % (str(e)))
-
-        return self.serviceSuccess(response, "%lu annotations exported from database" % i)
 
     
     ##########################################################################
@@ -197,6 +202,22 @@ class YAMLDatabase:
         response.result = False
         return response
 
+    def removeExp(self, target):
+        # Compose and compile regex to match exponential notation floats without floating point
+        regex = '([-+]?\d+[eE][-+]?\d+)'
+        offset = 0
+        comp_re = re.compile(regex)
+        for match in comp_re.finditer(target):
+            # Replace matches with a the same float plus a .0 to make pyyaml parser happy
+            fp_nb = match.group(1)
+            fp_nb = re.sub('[eE]', '.0e', fp_nb)
+            # print target[match.start(1) + offset:match.end(1) + offset]
+            target = target[:match.start(1) + offset] + fp_nb + target[match.end(1) + offset:]
+            # print target[match.start(1) + offset:match.end(1) + offset+2]
+            offset += 2
+
+        return target
+    
     def flowStyleLists(self, target):
         # Compose and compile regex to match uuids: lists of 16 integers
         regex = 'uuid: *\n'
