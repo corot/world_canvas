@@ -37,6 +37,7 @@ import roslib; roslib.load_manifest('warehouse_ros')
 import roslib.message
 import rospy
 import os
+import re
 import yaml
 import uuid
 import unique_id
@@ -162,9 +163,12 @@ class YAMLDatabase:
                             data = yaml.load(genpy.message.strify_message(pickle.loads(d.data)))
                         )
                         
-                        # TODO: this writes uuids and covariances as vertically disposed lists (with -),
-                        # what makes the output very long and not very readable
-                        f.write(yaml.dump(entry, default_flow_style=False))
+                        # default_flow_style = False writes lists with an element per-line, (with -),
+                        # what makes the output very long and not very readable. Method flowStyleLists
+                        # makes uuids and covariances list flow-styled, i.e. [x, y, z, ...]
+                        dump = yaml.dump(entry, default_flow_style = False)
+                        dump = self.flowStyleLists(dump)
+                        f.write(dump)
                         i += 1
                     except StopIteration:
                         if (i == 0):
@@ -192,3 +196,42 @@ class YAMLDatabase:
         response.message = message
         response.result = False
         return response
+
+    def flowStyleLists(self, target):
+        # Compose and compile regex to match uuids: lists of 16 integers
+        regex = 'uuid: *\n'
+        for i in range(0,16):
+            regex += ' *- +(\d+)\n'
+        comp_re = re.compile(regex)
+        while True:
+            match = comp_re.search(target)
+            if match is None:
+                break;
+            
+            # Replace matches with a flow-stile version; group(n) returns the nth integer
+            flow_list = 'uuid: ['
+            for i in range(1, 16):
+                flow_list += match.group(i) + ', '
+            flow_list += match.group(16) + ']\n'
+        
+            target = comp_re.sub(flow_list, target, 1)
+
+        # Compose and compile regex to match covariances: lists of 36 floats, possibly on exponential notation
+        regex = 'covariance: *\n'
+        for i in range(0,36):
+            regex += ' *- +([-+]?\d*\.?\d+|\d+[eE][-+]?\d+)\n'
+        comp_re = re.compile(regex)
+        while True:
+            match = comp_re.search(target)
+            if match is None:
+                break;
+            
+            # Replace matches with a flow-stile version; group(n) returns the nth float
+            flow_list = 'covariance: ['
+            for i in range(1, 36):
+                flow_list += match.group(i) + ', '
+            flow_list += match.group(36) + ']\n'
+        
+            target = comp_re.sub(flow_list, target, 1)
+
+        return target
