@@ -42,8 +42,8 @@ def publish(anns, data):
 
         marker_id = marker_id + 1
 
-    marker_pub = rospy.Publisher('ar_mk_marker',    MarkerArray, latch = True)
-    ar_mk_pub  = rospy.Publisher('ar_mk_pose_list', AlvarMarkers,latch = True)
+    marker_pub = rospy.Publisher('ar_mk_marker',    MarkerArray, latch=True, queue_size=1)
+    ar_mk_pub  = rospy.Publisher('ar_mk_pose_list', AlvarMarkers,latch=True, queue_size=1)
 
     ar_mk_pub.publish(ar_mk_list)
     marker_pub.publish(marker_list)

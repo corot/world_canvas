@@ -21,8 +21,8 @@ def publish(anns, data):
     # Advertise topics for retrieved annotations and their visualization markers
     topic_class = roslib.message.get_message_class(topic_type)
      
-    marker_pub = rospy.Publisher(topic_name + '_markers', MarkerArray, latch = True)
-    object_pub = rospy.Publisher(topic_name + '_client',  topic_class, latch = True)
+    marker_pub = rospy.Publisher(topic_name + '_markers', MarkerArray, latch=True, queue_size=1)
+    object_pub = rospy.Publisher(topic_name + '_client',  topic_class, latch=True, queue_size=1)
 
     # Process retrieved data to build annotations and markers lists
     object_list = list()

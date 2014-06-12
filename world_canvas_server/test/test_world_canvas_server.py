@@ -54,7 +54,7 @@ class TestMapStore(unittest.TestCase):
         self.check_map = None
         
         #Create services, publishers, and subscribers
-        map_pub = rospy.Publisher('/map', OccupancyGrid)
+        map_pub = rospy.Publisher('/map', OccupancyGrid, queue_size=5)
         test_map_sub = rospy.Subscriber('/test_map', OccupancyGrid, self.on_map)
         dynamic_map = rospy.Service('dynamic_map', GetMap, lambda x: GetMapResponse(map=test_map_2))
         print "Wait for /list_maps"

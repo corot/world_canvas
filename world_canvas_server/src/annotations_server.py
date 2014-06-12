@@ -175,7 +175,7 @@ class AnnotationsServer:
         matching_data = self.data_collection.query(query)
 
         topic_class = roslib.message.get_message_class(request.topic_type)
-        pub = rospy.Publisher(request.topic_name, topic_class, latch = True)
+        pub = rospy.Publisher(request.topic_name, topic_class, latch=True, queue_size=5)
     
         i = 0
         object_list = list()

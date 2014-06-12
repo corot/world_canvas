@@ -43,8 +43,8 @@ def publish(anns, data):
 
         marker_id = marker_id + 1
 
-    marker_pub = rospy.Publisher('wall_marker',    MarkerArray, latch = True)
-    wall_pub   = rospy.Publisher('wall_pose_list', WallList,    latch = True)
+    marker_pub = rospy.Publisher('wall_marker',    MarkerArray, latch=True, queue_size=1)
+    wall_pub   = rospy.Publisher('wall_pose_list', WallList,    latch=True, queue_size=1)
 
     wall_pub.publish(wall_list)
     marker_pub.publish(marker_list)
