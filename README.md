@@ -41,7 +41,7 @@ These scripts will request the server to save in database both the annotations a
 
 And now you are ready to look for annotations. Until we have an operating client library, use the get_any.py script from world_canvas_server package, e.g.
 ```
-rosrun world_canvas_server get_any.py  _world_id:='70a98ad3-78be-45eb-85f7-d2f14e81d95a' _ids:=[] _types:=['wall','xxx'] _keywords:=[] _relationships=[] _topic_type:=yocs_msgs/WallList _topic_name:=wall_pose_list _pub_as_list:=True
+rosrun world_canvas_server get_any.py  _world_id:='70a98ad3-78be-45eb-85f7-d2f14e81d95a' _ids:=[] _types:=['ar_track_alvar/AlvarMarker','xxx'] _keywords:=[] _relationships=[] _topic_type:=yocs_msgs/WallList _topic_name:=wall_pose_list _pub_as_list:=True
 ```
 The first 5 parameters provide search criteria:
  * world_id   Retrieved annotations associated to this world. Mandatory
