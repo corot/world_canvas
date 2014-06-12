@@ -34,14 +34,16 @@ Then you need to populate the database with some annotations (we still don't hav
 Use the save_xxxx.py scripts and the test/annotations/xxx_list.yaml data files from world_canvas_server package, e.g.
 
 ```
-rosrun world_canvas_server save_markers.py _world_id:='70a98ad3-78be-45eb-85f7-d2f14e81d95a' _filename:=`rospack find world_canvas_server`/test/annotations/ar_list.yaml
+> rosrun world_canvas_server save_markers.py _world_id:='70a98ad3-78be-45eb-85f7-d2f14e81d95a' _filename:=`rospack find world_canvas_server`/test/annotations/ar_list.yaml
+> rosrun world_canvas_server save_walls.py _world_id:='70a98ad3-78be-45eb-85f7-d2f14e81d95a' _filename:=`rospack find world_canvas_server`/test/annotations/wall_list.yaml
 ```
 
 These scripts will request the server to save in database both the annotations and the associated data the YAML files contain.
 
 And now you are ready to look for annotations. Until we have an operating client library, use the get_any.py script from world_canvas_server package, e.g.
 ```
-rosrun world_canvas_server get_any.py  _world_id:='70a98ad3-78be-45eb-85f7-d2f14e81d95a' _ids:=[] _types:=['ar_track_alvar/AlvarMarker','xxx'] _keywords:=[] _relationships=[] _topic_type:=yocs_msgs/WallList _topic_name:=wall_pose_list _pub_as_list:=True
+> rosrun world_canvas_server get_any.py  _world_id:='70a98ad3-78be-45eb-85f7-d2f14e81d95a' _ids:=[] _types:=['ar_track_alvar/AlvarMarker'] _keywords:=[] _relationships=[] _topic_type:=ar_track_alvar/AlvarMarker _topic_name:=ar_markers _pub_as_list:=False
+> rosrun world_canvas_server get_any.py  _world_id:='70a98ad3-78be-45eb-85f7-d2f14e81d95a' _ids:=[] _types:=['yocs_msgs/Wall'] _keywords:=[] _relationships=[] _topic_type:=yocs_msgs/WallList _topic_name:=wall_pose_list _pub_as_list:=True
 ```
 The first 5 parameters provide search criteria:
  * world_id   Retrieved annotations associated to this world. Mandatory
