@@ -71,3 +71,15 @@ You can verify that all went right by echoing topics
 
 Or in RViz showing topic
  * topic_name + '_markers'   Published by the get_Any script with visualization markers
+
+
+**Import/export database**
+
+The save_xxxx.py scripts are a temporal workaround to play with world canvas. The canonical ways to populate the
+database are a graphic tool still do be implemented and a import from YAML file service. To try the later method,
+and the reverse operation of exporting to file, you can run the import.py/export.py scripts:
+
+```
+rosrun world_canvas_server import.py _filename:=<world canvas workspace>/src/world_canvas/world_canvas_server/test/annotations/full_db.yaml
+rosrun world_canvas_server export.py _filename:=<world canvas workspace>/src/world_canvas/world_canvas_server/test/annotations/export_db.yaml
+```
