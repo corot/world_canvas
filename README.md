@@ -11,16 +11,19 @@ Give it a fast try
 
 **Prerequirements**
 
-Install mongo database and pymongo, the interface we use to access it:
+Install mongo database:
 
 ```
 sudo apt-get install mongodb
-sudo pip install pymongo
 ```
 
 **Installing**
 
-Use world_canvas.rosinstall to create a world_canvas workspace.
+Use world_canvas.rosinstall to create a world_canvas workspace. Don't forget to install dependencies:
+
+```
+rosdep install --from-paths -i src
+```
 
 **Running**
 
