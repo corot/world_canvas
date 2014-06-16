@@ -72,9 +72,7 @@ class AnnotationsServer:
             rospy.Service('get_annotations_data', GetAnnotationsData, self.getAnnotationsData)
         self.pub_data_srv = \
             rospy.Service('pub_annotations_data', PubAnnotationsData, self.pubAnnotationsData)
-        
-        self.load_data_srv = \
-            rospy.Service('load_annotations_data', LoadAnnotationsData, self.loadAnnotationsData)
+
         self.save_data_srv = \
             rospy.Service('save_annotations_data', SaveAnnotationsData, self.saveAnnotationsData)
 
@@ -201,51 +199,7 @@ class AnnotationsServer:
 
         response.result = True
         return response
-        
-        
-    def loadAnnotationsData(self, request):
-        '''
-          Legacy method kept for debug purposes: loads together annotations and its data
-          assuming a 1-1 relationship.
 
-          :param request: Service request.
-        '''
-        response = LoadAnnotationsDataResponse()
-        
-        query = {'world_id': {'$in': [unique_id.toHexString(request.world_id)]}}
-        matching_anns = self.anns_collection.query(query)
-        matching_data = self.data_collection.query(query)
-
-        i = 0
-        while True:
-            try:
-                response.annotations.append(matching_anns.next()[0])
-                response.data.append(matching_data.next()[0])
-                i += 1
-            except StopIteration:
-                if (i == 0):
-                    rospy.loginfo("No annotations found for map '%s'; we don't consider this an error"
-                                   % request.world_id)
-                    response.result = True  # we don't consider this an error
-                    return response
-                break
-    
-    
-#         if (len(matching_anns) != len(matching_data)):
-#             # we consider this an error by now, as we assume a 1 to 1 relationship;
-#             # but in future implementations this will change, probably, to a N to 1 relationship
-#             rospy.logerr("Pulled annotations and associated data don't match (%lu != %lu)",
-#                      len(matching_anns), len(matching_data))
-#             response.message = "Pulled annotations and associated data don't match"
-#             response.result = False
-#             return response
-#     
-#         response.annotations = matching_anns
-#         response.data        = matching_data
-    
-        rospy.loginfo("%lu annotations loaded" % i)
-        response.result = True
-        return response
 
     def saveAnnotationsData(self, request):
         '''
