@@ -172,6 +172,7 @@ class AnnotationsServer:
         query = {'id': {'$in': [unique_id.toHexString(id) for id in request.annotation_ids]}}                
         matching_data = self.data_collection.query(query)
 
+        # TODO:  si annot.type da el msg, topic_type podria ser opcional salvo q pub as list = true 
         topic_class = roslib.message.get_message_class(request.topic_type)
         pub = rospy.Publisher(request.topic_name, topic_class, latch=True, queue_size=5)
     
@@ -211,11 +212,11 @@ class AnnotationsServer:
         response = SaveAnnotationsDataResponse()
 
         print request.annotations
-        for i, annotation in enumerate(request.annotations):
-            data = request.data[i]
+        for annotation, data in zip(request.annotations, request.data):
             
             # Compose metadata: mandatory fields
             metadata = { 'world_id': unique_id.toHexString(annotation.world_id),
+                         'data_id' : unique_id.toHexString(annotation.data_id),
                          'id'      : unique_id.toHexString(annotation.id),
                          'name'    : annotation.name,
                          'type'    : annotation.type,
@@ -227,15 +228,16 @@ class AnnotationsServer:
             if len(annotation.relationships) > 0:
                 metadata['relationships'] = [unique_id.toHexString(r) for r in annotation.relationships]
 
+            # Data metadata: just the object id, as all querying is done over the annotations
+            data_metadata = { 'id' : unique_id.toHexString(annotation.data_id) }
+
             rospy.logdebug("Saving annotation %s for map %s" % (annotation.id, annotation.world_id))
 
             # Insert both annotation and associated data to the appropriate collection
-            # TODO: using by now the same metadata for both, while data only need annotation id
-            # WARN WARN WARN: setKeyword and setRelationship only operate on annotations metadata!
             self.anns_collection.remove({'id': {'$in': [unique_id.toHexString(annotation.id)]}})
             self.anns_collection.insert(annotation, metadata)
-            self.data_collection.remove({'id': {'$in': [unique_id.toHexString(annotation.id)]}})
-            self.data_collection.insert(data, metadata)
+            self.data_collection.remove({'id': {'$in': [unique_id.toHexString(annotation.data_id)]}})
+            self.data_collection.insert(data, data_metadata)
 
         rospy.loginfo("%lu annotations saved" % len(request.annotations))
         response.result = True

@@ -83,19 +83,21 @@ class YAMLDatabase:
         self.data_collection.remove({})
         
         for t in yaml_data:
-            # Annotation
+            # Annotation   TODO: should be a list of annotations to fulfill issue #1
             annotation = Annotation()
             try:
                 genpy.message.fill_message_args(annotation, t['annotation'])
 
                 # Forced conversion because UUID expects a string of 16 bytes, not a list
                 annotation.world_id.uuid = ''.join(chr(x) for x in annotation.world_id.uuid)
+                annotation.data_id.uuid = ''.join(chr(x) for x in annotation.data_id.uuid)
                 annotation.id.uuid = ''.join(chr(x) for x in annotation.id.uuid)
                 for r in annotation.relationships:
                     r.uuid = ''.join(chr(x) for x in r.uuid)
     
                 # Compose metadata: mandatory fields
                 metadata = { 'world_id': unique_id.toHexString(annotation.world_id),
+                             'data_id' : unique_id.toHexString(annotation.data_id),
                              'id'      : unique_id.toHexString(annotation.id),
                              'name'    : annotation.name,
                              'type'    : annotation.type,
@@ -110,15 +112,10 @@ class YAMLDatabase:
                 rospy.logdebug("Saving annotation %s for map %s" % (annotation.id, annotation.world_id))
         
     #                     self.anns_collection.remove({'id': {'$in': [unique_id.toHexString(annotation.id)]}})
-                # TODO: using by now the same metadata for both, while data only need annotation id
                 
                 self.anns_collection.insert(annotation, metadata)
             except (genpy.MessageException, genpy.message.SerializationError) as e:
                 return self.serviceError(response, "Invalid annotation msg format: %s" % str(e))
-
-
-#mmm... necesito el type del msg  tendrian q venir agrupados los annot con sus data y que annot.type diga q mensaje
-#OJO:  si annot.type da el msg, en PubAnnotData topic_type podria ser opcional salvo q pub as list = true 
 
             # Annotation data, of message type annotation.type
             msg_class = roslib.message.get_message_class(annotation.type)
@@ -127,12 +124,16 @@ class YAMLDatabase:
                 return self.serviceError(response, "Unknown message type: %s" % annotation.type)
             
             data = msg_class()
+
+            # Data metadata: just the object id, as all querying is done over the annotations
+            data_metadata = { 'id' : unique_id.toHexString(annotation.data_id) }
+
             try:
                 genpy.message.fill_message_args(data, t['data'])
                 data_msg = AnnotationData()
                 data_msg.id = annotation.id
                 data_msg.data = pickle.dumps(data)
-                self.data_collection.insert(data_msg, metadata)
+                self.data_collection.insert(data_msg, data_metadata)
             except (genpy.MessageException, genpy.message.SerializationError) as e:
                 # TODO: here I would have an incoherence in db: annotations without data;
                 # do mongo has rollback? do it manually? or just clear database content?
@@ -148,7 +149,8 @@ class YAMLDatabase:
 
         # Query for full database, both annotations and data, shorted by id, so they should match
         # WARN following issue #1, we must go for N-1 implementation instead of 1-1 as we have now
-        matching_anns = self.anns_collection.query({}, sort_by='id')
+        # TODO: get data, and for every object, take all anns with data_id = data.id  OR  maybe get shorted as done now and be careful in the loop!
+        matching_anns = self.anns_collection.query({}, sort_by='data_id')
         matching_data = self.data_collection.query({}, sort_by='id')
 
         try:

@@ -79,7 +79,7 @@ if __name__ == '__main__':
 
     rospy.loginfo('Loading data for the %d retrieved annotations', len(respAnns.annotations))
     get_data_srv = rospy.ServiceProxy('get_annotations_data', world_canvas_msgs.srv.GetAnnotationsData)
-    respData = get_data_srv([a.id for a in respAnns.annotations])
+    respData = get_data_srv([a.data_id for a in respAnns.annotations])
 
     if len(respData.data) > 0:
         rospy.loginfo('Publishing data for %d retrieved annotations...', len(respData.data))

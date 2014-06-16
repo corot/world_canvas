@@ -26,6 +26,7 @@ def read(filename):
         ann = Annotation()
         ann.timestamp = rospy.Time.now()
         ann.world_id = unique_id.toMsg(uuid.UUID('urn:uuid:' + world_id))
+        ann.data_id = unique_id.toMsg(unique_id.fromRandom())
         ann.id = unique_id.toMsg(unique_id.fromRandom())
         ann.name = t['name']
         ann.type = 'yocs_msgs/Table'
@@ -56,7 +57,7 @@ def read(filename):
         object.pose.header.stamp = rospy.Time.now()
         object.pose.pose.pose = message_converter.convert_dictionary_to_ros_message('geometry_msgs/Pose',t['pose'])
         data = AnnotationData()
-        data.id = ann.id
+        data.id = ann.data_id
         data.data = pickle.dumps(object)
         
         data_list.append(data)

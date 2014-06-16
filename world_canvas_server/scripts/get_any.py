@@ -103,7 +103,7 @@ if __name__ == '__main__':
 
     rospy.loginfo('Loading data for the %d retrieved annotations', len(respAnns.annotations))
     get_data_srv = rospy.ServiceProxy('get_annotations_data', world_canvas_msgs.srv.GetAnnotationsData)
-    respData = get_data_srv([a.id for a in respAnns.annotations])
+    respData = get_data_srv([a.data_id for a in respAnns.annotations])
 
     if len(respData.data) > 0:
         rospy.loginfo('Publishing data for %d retrieved annotations...', len(respData.data))
@@ -113,7 +113,7 @@ if __name__ == '__main__':
 
     rospy.loginfo('Requesting server to also publish the same data')
     pub_data_srv = rospy.ServiceProxy('pub_annotations_data', world_canvas_msgs.srv.PubAnnotationsData)
-    respData = pub_data_srv([a.id for a in respAnns.annotations], topic_name, topic_type, pub_as_list)
+    respData = pub_data_srv([a.data_id for a in respAnns.annotations], topic_name, topic_type, pub_as_list)
 
     rospy.loginfo("Done")
     rospy.spin()
