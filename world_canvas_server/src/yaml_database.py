@@ -76,46 +76,66 @@ class YAMLDatabase:
                 # load all documents
                 yaml_data = yaml.load(f)
         except yaml.YAMLError as e:
-            return self.serviceError(response, "Invalid YAML in file: %s" % (str(e)))
+            return self.serviceError(response, "Invalid YAML file: %s" % (str(e)))
     
         # Clear existing database content  TODO: flag to choose whether keep content
         self.anns_collection.remove({})
         self.data_collection.remove({})
-        
-        for t in yaml_data:
-            # Annotation   TODO: should be a list of annotations to fulfill issue #1
-            annotation = Annotation()
-            try:
-                genpy.message.fill_message_args(annotation, t['annotation'])
 
-                # Forced conversion because UUID expects a string of 16 bytes, not a list
-                annotation.world_id.uuid = ''.join(chr(x) for x in annotation.world_id.uuid)
-                annotation.data_id.uuid = ''.join(chr(x) for x in annotation.data_id.uuid)
-                annotation.id.uuid = ''.join(chr(x) for x in annotation.id.uuid)
-                for r in annotation.relationships:
-                    r.uuid = ''.join(chr(x) for x in r.uuid)
-    
-                # Compose metadata: mandatory fields
-                metadata = { 'world_id': unique_id.toHexString(annotation.world_id),
-                             'data_id' : unique_id.toHexString(annotation.data_id),
-                             'id'      : unique_id.toHexString(annotation.id),
-                             'name'    : annotation.name,
-                             'type'    : annotation.type,
-                           }
-    
-                # Optional fields; note that both are stored as lists of strings
-                if len(annotation.keywords) > 0:
-                    metadata['keywords'] = annotation.keywords
-                if len(annotation.relationships) > 0:
-                    metadata['relationships'] = [unique_id.toHexString(r) for r in annotation.relationships]
+        # Parse file: a database is composed of a list of elements, each one containing a list of annotations plus
+        # their referenced data. TODO: Can change according to issue https://github.com/corot/world_canvas/issues/9
+        for t in yaml_data:
+            # Annotations: a list of one or more annotations
+            try:
+                anns_list = t['annotations']
+            except KeyError as e:
+                return self.serviceError(response, "Invalid database file format: %s field not found" % str(e))
+
+            if len(anns_list) == 0:
+                # Coherence check: there must be at least one annotation for database entry
+                return self.serviceError(response, "Invalid database file format: " \
+                                         "there must be at least one annotation for database entry")
+
+            for a in anns_list:
+                annotation = Annotation()
+                try:
+                    genpy.message.fill_message_args(annotation, a)
+
+                    if 'prev_data_id' in locals() and prev_data_id != annotation.data_id.uuid:
+                        # Coherence check: all data_id fields must be equal between them and to data id
+                        return self.serviceError(response, "Invalid database file format: " \
+                                                 "data ids must be equal for annotations referencing the same data")
+
+                    prev_data_id = annotation.data_id.uuid
                     
-                rospy.logdebug("Saving annotation %s for map %s" % (annotation.id, annotation.world_id))
+                    # Forced conversion because UUID expects a string of 16 bytes, not a list
+                    annotation.world_id.uuid = ''.join(chr(x) for x in annotation.world_id.uuid)
+                    annotation.data_id.uuid = ''.join(chr(x) for x in annotation.data_id.uuid)
+                    annotation.id.uuid = ''.join(chr(x) for x in annotation.id.uuid)
+                    for r in annotation.relationships:
+                        r.uuid = ''.join(chr(x) for x in r.uuid)
         
-    #                     self.anns_collection.remove({'id': {'$in': [unique_id.toHexString(annotation.id)]}})
-                
-                self.anns_collection.insert(annotation, metadata)
-            except (genpy.MessageException, genpy.message.SerializationError) as e:
-                return self.serviceError(response, "Invalid annotation msg format: %s" % str(e))
+                    # Compose metadata: mandatory fields
+                    metadata = { 'world_id': unique_id.toHexString(annotation.world_id),
+                                 'data_id' : unique_id.toHexString(annotation.data_id),
+                                 'id'      : unique_id.toHexString(annotation.id),
+                                 'name'    : annotation.name,
+                                 'type'    : annotation.type,
+                               }
+        
+                    # Optional fields; note that both are stored as lists of strings
+                    if len(annotation.keywords) > 0:
+                        metadata['keywords'] = annotation.keywords
+                    if len(annotation.relationships) > 0:
+                        metadata['relationships'] = [unique_id.toHexString(r) for r in annotation.relationships]
+                        
+                    rospy.logdebug("Saving annotation %s for map %s" % (annotation.id, annotation.world_id))
+            
+        #                     self.anns_collection.remove({'id': {'$in': [unique_id.toHexString(annotation.id)]}})
+                    
+                    self.anns_collection.insert(annotation, metadata)
+                except (genpy.MessageException, genpy.message.SerializationError) as e:
+                    return self.serviceError(response, "Invalid annotation msg format: %s" % str(e))
 
             # Annotation data, of message type annotation.type
             msg_class = roslib.message.get_message_class(annotation.type)
@@ -131,15 +151,19 @@ class YAMLDatabase:
             try:
                 genpy.message.fill_message_args(data, t['data'])
                 data_msg = AnnotationData()
-                data_msg.id = annotation.id
+                data_msg.id = annotation.data_id
                 data_msg.data = pickle.dumps(data)
                 self.data_collection.insert(data_msg, data_metadata)
             except (genpy.MessageException, genpy.message.SerializationError) as e:
                 # TODO: here I would have an incoherence in db: annotations without data;
                 # do mongo has rollback? do it manually? or just clear database content?
                 return self.serviceError(response, "Invalid %s msg format: %s" % (annotation.type, str(e)))
+            except KeyError as e:
+                return self.serviceError(response, "Invalid database file format: %s field not found" % str(e))
 
 #               self.data_collection.remove({'id': {'$in': [unique_id.toHexString(annotation.id)]}})
+
+            del prev_data_id # clear this so it doen't interfere with next element validation
 
         return self.serviceSuccess(response, "%lu annotations imported on database" % len(yaml_data))
 
@@ -147,27 +171,51 @@ class YAMLDatabase:
     def exportToYAML(self, request):
         response = YAMLExportResponse()
 
-        # Query for full database, both annotations and data, shorted by id, so they should match
-        # WARN following issue #1, we must go for N-1 implementation instead of 1-1 as we have now
-        # TODO: get data, and for every object, take all anns with data_id = data.id  OR  maybe get shorted as done now and be careful in the loop!
+        # Query for all annotations in database, shorted by data id, so we can export packed with its referenced data
         matching_anns = self.anns_collection.query({}, sort_by='data_id')
-        matching_data = self.data_collection.query({}, sort_by='id')
 
         try:
             with open(request.filename, 'w') as f:
                 entries = []
+                annotations = []
+                last = False
+
+                # Loop over annotations retrieved from database
                 while True:
                     try:
-                        a = matching_anns.next()[0]
-                        d = matching_data.next()[0]
-              
+                        annotation, metadata = matching_anns.next()
+                    except StopIteration:
+                        last = True
+
+                    if not last and (len(annotations) == 0 or annotation.data_id == annotations[-1].data_id):
+                        # We pack annotations with the same data_id
+                        annotations.append(annotation)
+                    elif len(annotations) > 0:
+                        # When the next annotation have a different data_id, or is the
+                        # last one, it's time to append a new entry to the output file:
+                        #  a) retrieve data for current data_id
+                        data_id_str = unique_id.toHexString(annotations[-1].data_id)
+                        matching_data = self.data_collection.query({'id': {'$in': [data_id_str]}})
+                        try:
+                            d = matching_data.next()[0]
+                        except StopIteration:
+                            return self.serviceError(response, "Export to file failed: " \
+                                                     "No data found with id %s" % data_id_str)
+
+                        #  b) pack together with their referencing annotations in a dictionary
                         entry = dict(
-                            annotation = yaml.load(genpy.message.strify_message(a)),
+                            annotations = [yaml.load(genpy.message.strify_message(a)) for a in annotations],
                             data = yaml.load(genpy.message.strify_message(pickle.loads(d.data)))
                         )
                         entries.append(entry)
-                    except StopIteration:
-                        break
+
+                        if last:
+                            break;
+                        else:
+                            # No the last annotation; note that it's still not stored,
+                            # in the entries list so add to list for the next iteration
+                            annotations = [annotation]
+
 
                 if len(entries) == 0:
                     # we don't consider this an error
