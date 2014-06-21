@@ -75,6 +75,8 @@ class YAMLDatabase:
             with open(request.filename, 'r') as f:
                 # load all documents
                 yaml_data = yaml.load(f)
+                if yaml_data is None:
+                    raise yaml.YAMLError('Empty files not allowed')
         except yaml.YAMLError as e:
             return self.serviceError(response, "Invalid YAML file: %s" % (str(e)))
     
@@ -215,6 +217,10 @@ class YAMLDatabase:
                             # No the last annotation; note that it's still not stored,
                             # in the entries list so add to list for the next iteration
                             annotations = [annotation]
+                    else:
+                         # just to verify the not-very-clear logic of the loop...
+                        rospy.logdebug("Final else: %d %d" % (last, len(entries)))
+                        break;
 
 
                 if len(entries) == 0:
