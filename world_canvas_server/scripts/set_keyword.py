@@ -26,5 +26,3 @@ if __name__ == '__main__':
         rospy.loginfo("Keyword %s successfully %s. %s", keyword, "added" if action == 1 else "removed", response.message)
     else:
         rospy.logerr("%s keyword %s failed; %s", "Add" if action == 1 else "Remove", keyword, response.message)
-
-    rospy.spin()

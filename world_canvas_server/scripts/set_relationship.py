@@ -27,5 +27,3 @@ if __name__ == '__main__':
         rospy.loginfo("Relationship %s successfully %s. %s", related, "added" if action == 1 else "removed", response.message)
     else:
         rospy.logerr("%s relationship %s failed; %s", "Add" if action == 1 else "Remove", related, response.message)
-
-    rospy.spin()

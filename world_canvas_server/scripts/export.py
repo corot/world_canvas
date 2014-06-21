@@ -24,5 +24,3 @@ if __name__ == '__main__':
         rospy.loginfo("Database successfully exported to %s", filename)
     else:
         rospy.logerr("Export database failed; %s", response.message)
-
-    rospy.spin()

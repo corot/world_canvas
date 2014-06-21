@@ -25,4 +25,3 @@ if __name__ == '__main__':
     else:
         rospy.logerr("Import database failed; %s", response.message)
 
-    rospy.spin()
