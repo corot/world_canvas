@@ -53,17 +53,16 @@ class AnnotationsServer:
     ##########################################################################
 
     def __init__(self):
-        # Set up collections: for every annotation, we store a couple of Annotation and AnnotationData
-        # messages, the second containing the annotation id and a serialized representation of a message
-        # of type annotation.type (data field)
-        # TODO following issue #1, we must go for N-1 implementation instead of 1-1 as we have now
+        # Set up collections: for every annotation, we store an AnnotationData message plus 1 or
+        # more Annotation messages, the first containing the an id and a serialized representation
+        # of a message of type annotation.type (data field)
         self.anns_collection = \
             wr.MessageCollection("world_canvas", "annotations", Annotation)
-        self.anns_collection.ensure_index("id")
+        self.anns_collection.ensure_index("id", unique=True)
 
         self.data_collection = \
             wr.MessageCollection("world_canvas", "annotations_data", AnnotationData)
-        self.data_collection.ensure_index("id")
+        self.data_collection.ensure_index("id", unique=True)
         
         # Set up services
         self.get_anns_srv = \
