@@ -133,11 +133,15 @@ class YAMLDatabase:
                         
                     rospy.logdebug("Saving annotation %s for map %s" % (annotation.id, annotation.world_id))
             
-        #                     self.anns_collection.remove({'id': {'$in': [unique_id.toHexString(annotation.id)]}})
+                    # TODO  recuperate if implement TODO on line 83                   self.anns_collection.remove({'id': {'$in': [unique_id.toHexString(annotation.id)]}})
                     
-                    self.anns_collection.insert(annotation, metadata)
+                    self.anns_collection.insert(annotation, metadata, safe=True)
+                    
                 except (genpy.MessageException, genpy.message.SerializationError) as e:
                     return self.serviceError(response, "Invalid annotation msg format: %s" % str(e))
+                except Exception as e:
+                    # Assume collection.insert raised this, as we set safe=True (typically a DuplicateKeyError)
+                    return self.serviceError(response, "Insert annotation failed: %s" % str(e))
 
             # Annotation data, of message type annotation.type
             msg_class = roslib.message.get_message_class(annotation.type)
@@ -155,13 +159,16 @@ class YAMLDatabase:
                 data_msg = AnnotationData()
                 data_msg.id = annotation.data_id
                 data_msg.data = pickle.dumps(data)
-                self.data_collection.insert(data_msg, data_metadata)
+                self.data_collection.insert(data_msg, data_metadata, safe=True)
             except (genpy.MessageException, genpy.message.SerializationError) as e:
                 # TODO: here I would have an incoherence in db: annotations without data;
                 # do mongo has rollback? do it manually? or just clear database content?
                 return self.serviceError(response, "Invalid %s msg format: %s" % (annotation.type, str(e)))
             except KeyError as e:
                 return self.serviceError(response, "Invalid database file format: %s field not found" % str(e))
+            except Exception as e:
+                # Assume collection.insert raised this, as we set safe=True (typically a DuplicateKeyError)
+                return self.serviceError(response, "Insert annotation data failed: %s" % str(e))
 
 #               self.data_collection.remove({'id': {'$in': [unique_id.toHexString(annotation.id)]}})
 
