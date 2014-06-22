@@ -18,12 +18,6 @@ from visualization_msgs.msg import Marker, MarkerArray
 
 
 def publish(anns, data):
-    # Advertise topics for retrieved annotations and their visualization markers
-    topic_class = roslib.message.get_message_class(topic_type)
-     
-    marker_pub = rospy.Publisher(topic_name + '_markers', MarkerArray, latch=True, queue_size=1)
-    object_pub = rospy.Publisher(topic_name + '_client',  topic_class, latch=True, queue_size=1)
-
     # Process retrieved data to build annotations and markers lists
     object_list = list()
     marker_list = MarkerArray()    
@@ -52,6 +46,16 @@ def publish(anns, data):
 
         marker_id = marker_id + 1
 
+    # Advertise topics for retrieved annotations and their visualization markers
+    # Message type is topic_type if we publish results as a list; a.type otherwise
+    if not pub_as_list:
+        topic_type = a.type
+    
+    topic_class = roslib.message.get_message_class(topic_type)
+     
+    marker_pub = rospy.Publisher(topic_name + '_markers', MarkerArray, latch=True, queue_size=1)
+    object_pub = rospy.Publisher(topic_name + '_client',  topic_class, latch=True, queue_size=1)
+
     marker_pub.publish(marker_list)
 
     # Publish resulting lists
@@ -60,7 +64,10 @@ def publish(anns, data):
     else:
         # if pub_as_list is false, publish objects one by one
         for object in object_list:
-            object_pub.publish(object)
+            if isinstance(object, topic_class):
+                object_pub.publish(object)
+            else:
+                rospy.logwarn("Object is not of type %s but %s" % (topic_type, type(object).__name__))
     
 # Other ways to do the same: not using ros magic
 #     module_name, class_name = topic_type.rsplit(".", 1)

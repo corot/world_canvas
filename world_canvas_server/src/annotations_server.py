@@ -168,12 +168,41 @@ class AnnotationsServer:
     def pubAnnotationsData(self, request):
         response = PubAnnotationsDataResponse()
         
-        query = {'id': {'$in': [unique_id.toHexString(id) for id in request.annotation_ids]}}                
-        matching_data = self.data_collection.query(query)
+        if len(request.annotation_ids) == 0:
+            return self.serviceError(response, "No annotation ids on request; you must be kidding!")
 
-        # TODO:  si annot.type da el msg, topic_type podria ser opcional salvo q pub as list = true 
-        topic_class = roslib.message.get_message_class(request.topic_type)
+        # Verify that all annotations on list belong to the same type (as we will publish them in
+        # the same topic) and that at least one is really present in database
+        query = {'data_id': {'$in': [unique_id.toHexString(id) for id in request.annotation_ids]}}
+        matching_anns = self.anns_collection.query(query, metadata_only=True)
+        while True:
+            try:
+                # Get annotation metadata; we just need the annotation type
+                ann_md = matching_anns.next()
+                if 'topic_type' not in locals():
+                    topic_type = ann_md['type']
+                elif topic_type != ann_md['type']:
+                    return self.serviceError(response, "Cannot publish annotations of different types (%s, %s)"
+                                             % (topic_type, ann_md['type']))
+            except StopIteration:
+                break
+
+        if 'topic_type' not in locals():
+            return self.serviceError(response, "None of the %d requested annotations was found in database"
+                                     % len(request.annotation_ids))
+            
+     
+        # Advertise a topic with message type request.topic_type if we will publish results as a list
+        if request.pub_as_list:
+            topic_class = roslib.message.get_message_class(request.topic_type)
+        else:
+            # Use the retrieved annotations type otherwise (we have verified that it's unique) 
+            topic_class = roslib.message.get_message_class(topic_type)
         pub = rospy.Publisher(request.topic_name, topic_class, latch=True, queue_size=5)
+        
+        # Now retrieve data associated to the requested annotations; reuse query to skip toHexString calls
+        query['id'] = query.pop('data_id')                
+        matching_data = self.data_collection.query(query)
     
         i = 0
         object_list = list()
@@ -190,11 +219,15 @@ class AnnotationsServer:
                 i += 1
             except StopIteration:
                 if (i == 0):
-                    rospy.loginfo("No annotations data found for query %s" % query)  # we don't consider this an error
+                    # This must be an error cause we verified before that at least one annotation is present!
+                    return self.serviceError(response, "No annotations data found for query %s" % query)
+                if i != len(request.annotation_ids):
+                    # Don't need to be an error, as multiple annotations can reference the same data
+                    rospy.logwarn("Only %d objects found for %d annotations" % (i, len(request.annotation_ids)))
                 else:
                     rospy.loginfo("%d objects found for %d annotations" % (i, len(request.annotation_ids)))
-                    if request.pub_as_list:
-                        pub.publish(object_list)
+                if request.pub_as_list:
+                    pub.publish(object_list)
                 break
 
         response.result = True
@@ -331,6 +364,10 @@ class AnnotationsServer:
         return response
 
 
+    ##########################################################################
+    # Auxiliary methods
+    ##########################################################################
+
     def getMetadata(self, uuid):
         # Get metadata for the given annotation id
         annot_id = unique_id.toHexString(uuid)
@@ -341,6 +378,18 @@ class AnnotationsServer:
         except StopIteration:
             rospy.logwarn("Annotation %s not found" % annot_id)
             return annot_id, None
+
+    def serviceSuccess(self, response, message = None):
+        if message is not None:
+            rospy.loginfo(message)
+        response.result = True
+        return response
+
+    def serviceError(self, response, message):
+        rospy.logerr(message)
+        response.message = message
+        response.result = False
+        return response
 
 
 if __name__ == "__main__":
