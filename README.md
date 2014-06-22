@@ -57,7 +57,7 @@ The first 5 parameters provide search criteria:
 
 And the other 3 define how the server must publish the retrieved annotations
  * topic_name    Where server must publish annotations data
- * topic_type    The message type to publish annotations data. Mandatory
+ * topic_type    The message type to publish annotations data. Mandatory if pub_as_list is true; ignored otherwise
  * pub_as_list   If true, annotations will be packed in a list before publishing, so topic_type must be an array of the requested annotations
 
 The get_any script calls 3 services in the annotations server:
