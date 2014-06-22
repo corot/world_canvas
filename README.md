@@ -9,14 +9,6 @@ World canvas server is a storage manager for semantic maps. Initial version repl
 Give it a fast try
 ------------------
 
-**Prerequirements**
-
-Install mongo database:
-
-```
-sudo apt-get install mongodb
-```
-
 **Installing**
 
 Use world_canvas.rosinstall to create a world_canvas workspace. Don't forget to install dependencies:
