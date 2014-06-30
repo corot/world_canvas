@@ -75,3 +75,13 @@ and the reverse operation of exporting to file, you can run the import.py/export
 rosrun world_canvas_server import.py _filename:=<world canvas workspace>/src/world_canvas/world_canvas_server/test/annotations/full_db.yaml
 rosrun world_canvas_server export.py _filename:=<world canvas workspace>/src/world_canvas/world_canvas_server/test/annotations/export_db.yaml
 ```
+
+
+**Real scenario testing**
+
+Now we can show a more practical use: Turtlebot simulated on Stage using virtual sensor and getting the 2D map from WC server. You must first update your workspace using the modified rosinstall file. It adds the experimental branch of the turtlebot_simulator repo. Then, populate the WC database, and ready to go!
+
+```
+roslaunch turtlebot_stage populate_world.launch
+roslaunch turtlebot_stage world_canvas_demo.launch
+```
