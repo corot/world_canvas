@@ -1,4 +1,4 @@
-# World canvasframework
+# WKF (World Canvas Framework)
 - git: {local-name: world_canvas, uri: 'https://github.com/corot/world_canvas.git',
     version: master}
 - git: {local-name: world_canvas_libs, uri: 'https://github.com/corot/world_canvas_libs.git',
@@ -9,6 +9,10 @@
 # ROS required packages
 - git: {local-name: warehouse_ros, uri: 'https://github.com/corot/warehouse_ros.git ',
     version: master}
+
+# Testing playground 
+- git: {local-name: turtlebot_simulator, uri: 'https://github.com/turtlebot/turtlebot_simulator.git ',
+    version: experimental}
 
 # Map store and legacy code
 - git: {local-name: annotations_store, uri: 'https://github.com/corot/annotations_store.git',
