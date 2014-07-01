@@ -38,7 +38,6 @@ def publish(anns, data):
         marker.action = Marker.ADD
         marker.lifetime = rospy.Duration.from_sec(0)
         marker.pose = copy.deepcopy(a.pose.pose.pose)
-#        marker.pose.position.z += marker.pose.position.z/2.0
         marker.scale = a.size
         marker.color = a.color
 

@@ -46,6 +46,10 @@ def read(filename):
         ann.pose.header.frame_id = t['frame_id']
         ann.pose.header.stamp = rospy.Time.now()
         ann.pose.pose.pose = message_converter.convert_dictionary_to_ros_message('geometry_msgs/Pose',t['pose'])
+        
+        # columns are assumed to lay on the floor, so z coordinate is zero;
+        # but WCF assumes that the annotation pose is the center of the object
+        ann.pose.pose.pose.position.z += ann.size.z/2.0
 
         anns_list.append(ann)
 
