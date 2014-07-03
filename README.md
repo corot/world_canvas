@@ -82,6 +82,7 @@ rosrun world_canvas_server export.py _filename:=<world canvas workspace>/src/wor
 Now we can show a more practical use: Turtlebot simulated on Stage using virtual sensor and getting the 2D map from WC server. You must first update your workspace using the modified rosinstall file. It adds the experimental branch of the turtlebot_simulator repo. Then, populate the WC database, and ready to go!
 
 ```
-roslaunch turtlebot_stage populate_world.launch
-roslaunch turtlebot_stage world_canvas_demo.launch
+roslaunch world_canvas_server py_annotations_server.launch --screen
+roslaunch turtlebot_stage populate_world.launch --screen
+roslaunch turtlebot_stage world_canvas_demo.launch --screen
 ```
