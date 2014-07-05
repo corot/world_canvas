@@ -192,14 +192,19 @@ class AnnotationsServer:
         if 'topic_type' not in locals():
             return self.serviceError(response, "None of the %d requested annotations was found in database"
                                      % len(request.annotation_ids))
-            
-     
-        # Advertise a topic with message type request.topic_type if we will publish results as a list
+
+        # Advertise a topic with message type request.topic_type if we will publish results as a list (note that we
+        # ignore list's type) or use the retrieved annotations type otherwise (we have verified that it's unique) 
         if request.pub_as_list:
-            topic_class = roslib.message.get_message_class(request.topic_type)
-        else:
-            # Use the retrieved annotations type otherwise (we have verified that it's unique) 
-            topic_class = roslib.message.get_message_class(topic_type)
+            topic_type = request.topic_type
+
+        topic_class = roslib.message.get_message_class(topic_type)
+        if topic_class is None:
+            # This happens if the topic type is wrong or not known for the server (i.e. the package describing it is
+            # absent from ROS_PACKAGE_PATH). The second condition is a tricky one, as is a big known limitation of WCF
+            # (https://github.com/corot/world_canvas/issues/5)
+            return self.serviceError(response, "Topic type %s definition not found" % topic_type)
+
         pub = rospy.Publisher(request.topic_name, topic_class, latch=True, queue_size=5)
         
         # Now retrieve data associated to the requested annotations; reuse query to skip toHexString calls

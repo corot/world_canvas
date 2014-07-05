@@ -17,7 +17,7 @@ from rospy_message_converter import message_converter
 from visualization_msgs.msg import Marker, MarkerArray
 
 
-def publish(anns, data):
+def publish(anns, data, topic_name, topic_type, pub_as_list):
     # Process retrieved data to build annotations and markers lists
     object_list = list()
     marker_list = MarkerArray()    
@@ -51,7 +51,11 @@ def publish(anns, data):
         topic_type = a.type
     
     topic_class = roslib.message.get_message_class(topic_type)
-     
+    if topic_class is None:
+        # This happens if the topic type is wrong or not known (i.e. absent from ROS_PACKAGE_PATH)
+        rospy.logerr("Topic type %s definition not found; unable to publish annotations" % topic_type)
+        return
+
     marker_pub = rospy.Publisher(topic_name + '_markers', MarkerArray, latch=True, queue_size=1)
     object_pub = rospy.Publisher(topic_name + '_client',  topic_class, latch=True, queue_size=1)
 
@@ -82,7 +86,7 @@ def publish(anns, data):
 if __name__ == '__main__':
     rospy.init_node('objects_loader')
     topic_name  = rospy.get_param('~topic_name', 'annotations')
-    topic_type  = rospy.get_param('~topic_type')
+    topic_type  = rospy.get_param('~topic_type', None)
     pub_as_list = rospy.get_param('~pub_as_list', False)
     world_id = rospy.get_param('~world_id')
     ids      = rospy.get_param('~ids', [])
@@ -91,6 +95,10 @@ if __name__ == '__main__':
     keywords = rospy.get_param('~keywords', [])
     related  = rospy.get_param('~relationships', [])
 
+    if pub_as_list and topic_type is None:
+        rospy.logerr("You must specify the topic type if pub_as_list is true")
+        sys.exit()
+    
     rospy.loginfo("Waiting for get_annotations service...")
     rospy.wait_for_service('get_annotations')
 
@@ -114,7 +122,7 @@ if __name__ == '__main__':
 
     if len(respData.data) > 0:
         rospy.loginfo('Publishing data for %d retrieved annotations...', len(respData.data))
-        publish(respAnns.annotations, respData.data)
+        publish(respAnns.annotations, respData.data, topic_name, topic_type, pub_as_list)
     else:
         rospy.logwarn('No data found for the %d retrieved annotations', len(respAnns.annotations))
 
