@@ -105,6 +105,8 @@ class AnnotationsServer:
         query['$and'].append({'world_id': {'$in': [unique_id.toHexString(request.world_id)]}})
         if len(request.ids) > 0:
             query['$and'].append({'id': {'$in': [unique_id.toHexString(id) for id in request.ids]}})
+        if len(request.names) > 0:
+            query['$and'].append({'name': {'$in': request.names}})
         if len(request.types) > 0:
             query['$and'].append({'type': {'$in': request.types}})
         if len(request.keywords) > 0:

@@ -55,6 +55,7 @@ if __name__ == '__main__':
     rospy.init_node('columns_loader')
     world_id = rospy.get_param('~world_id')
     ids      = rospy.get_param('~ids', [])
+    names    = rospy.get_param('~names', [])
     types    = rospy.get_param('~types', [])
     keywords = rospy.get_param('~keywords', [])
     related  = rospy.get_param('~relationships', [])
@@ -66,7 +67,7 @@ if __name__ == '__main__':
     get_anns_srv = rospy.ServiceProxy('get_annotations', world_canvas_msgs.srv.GetAnnotations)
     respAnns = get_anns_srv(unique_id.toMsg(uuid.UUID('urn:uuid:' + world_id)),
                            [unique_id.toMsg(uuid.UUID('urn:uuid:' + id)) for id in ids],
-                            types, keywords, [], [], [],
+                            names, types, keywords, [], [], [],
                            [unique_id.toMsg(uuid.UUID('urn:uuid:' + r)) for r in related])
 
     if len(respAnns.annotations) > 0:
