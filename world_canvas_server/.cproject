@@ -3,7 +3,13 @@
 	<storageModule moduleId="org.eclipse.cdt.core.settings">
 		<cconfiguration id="cdt.managedbuild.toolchain.gnu.base.873172983">
 			<storageModule buildSystemId="org.eclipse.cdt.managedbuilder.core.configurationDataProvider" id="cdt.managedbuild.toolchain.gnu.base.873172983" moduleId="org.eclipse.cdt.core.settings" name="Default">
-				<externalSettings/>
+				<externalSettings>
+					<externalSetting>
+						<entry flags="READONLY|RESOLVED" kind="includePath" name="/opt/ros/hydro/include"/>
+						<entry flags="READONLY|RESOLVED" kind="includePath" name="/home/jorge/workspaces/turtlebot/devel/include"/>
+						<entry flags="READONLY|RESOLVED" kind="includePath" name="/home/jorge/workspaces/semantic_maps/devel/include"/>
+					</externalSetting>
+				</externalSettings>
 				<extensions>
 					<extension id="org.eclipse.cdt.core.GmakeErrorParser" point="org.eclipse.cdt.core.ErrorParser"/>
 					<extension id="org.eclipse.cdt.core.CWDLocator" point="org.eclipse.cdt.core.ErrorParser"/>
@@ -46,13 +52,19 @@
 	<storageModule moduleId="cdtBuildSystem" version="4.0.0">
 		<project id="world_canvas_server.null.9790855" name="world_canvas_server"/>
 	</storageModule>
-	<storageModule moduleId="scannerConfiguration">
-		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
-	</storageModule>
 	<storageModule moduleId="org.eclipse.cdt.core.LanguageSettingsProviders"/>
 	<storageModule moduleId="refreshScope" versionNumber="2">
 		<configuration configurationName="Default">
 			<resource resourceType="PROJECT" workspacePath="/world_canvas_server"/>
 		</configuration>
+	</storageModule>
+	<storageModule moduleId="scannerConfiguration">
+		<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.base.873172983;cdt.managedbuild.toolchain.gnu.base.873172983.2112832071;cdt.managedbuild.tool.gnu.c.compiler.base.1139971335;cdt.managedbuild.tool.gnu.c.compiler.input.1139784786">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
+		<scannerConfigBuildInfo instanceId="cdt.managedbuild.toolchain.gnu.base.873172983;cdt.managedbuild.toolchain.gnu.base.873172983.2112832071;cdt.managedbuild.tool.gnu.cpp.compiler.base.329736557;cdt.managedbuild.tool.gnu.cpp.compiler.input.92551297">
+			<autodiscovery enabled="true" problemReportingEnabled="true" selectedProfileId=""/>
+		</scannerConfigBuildInfo>
 	</storageModule>
 </cproject>

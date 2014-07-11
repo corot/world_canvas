@@ -99,7 +99,7 @@ class AnnotationsServer:
         response = GetAnnotationsResponse()
         
         # Compose query concatenating filter criteria in an '$and' operator
-        # Keywords and relationships are lists: operator '$in' makes a N to N matching
+        # Except world_id, all criteria are lists: operator '$in' makes a N to N matching
         # Empty fields are ignored
         query = {'$and':[]}
         query['$and'].append({'world_id': {'$in': [unique_id.toHexString(request.world_id)]}})
@@ -115,6 +115,7 @@ class AnnotationsServer:
             query['$and'].append({'relationships': {'$in': [unique_id.toHexString(r) for r in request.relationships]}})
 
         # Execute the query and retrieve results
+        rospy.logdebug("Find annotations with query %s" % query)
         matching_anns = self.anns_collection.query(query)            
 
         i = 0
@@ -124,7 +125,7 @@ class AnnotationsServer:
                 i += 1
             except StopIteration:
                 if (i == 0):
-                    rospy.loginfo("No annotations found for query %s" % query)
+                    rospy.loginfo("No annotations found")
                     response.result = True  # we don't consider this an error
                     return response
                 break
@@ -149,8 +150,12 @@ class AnnotationsServer:
     def getAnnotationsData(self, request):
         response = GetAnnotationsDataResponse()
         
+        if len(request.annotation_ids) == 0:
+            return self.serviceError(response, "No annotation ids on request; you must be kidding!")
+        
         query = {'id': {'$in': [unique_id.toHexString(id) for id in request.annotation_ids]}}                
         matching_data = self.data_collection.query(query)
+        rospy.logdebug("Load annotations data with query %s" % query)
 
         i = 0
         while True:
@@ -159,7 +164,8 @@ class AnnotationsServer:
                 i += 1
             except StopIteration:
                 if (i == 0):
-                    rospy.loginfo("No annotations data found for query %s" % query)  # we don't consider this an error
+                     # we don't consider this an error
+                    rospy.loginfo("No data found for %d requested annotations" % len(request.annotation_ids))
                 else:
                     rospy.loginfo("%d objects found for %d annotations" % (i, len(request.annotation_ids)))
                 break
@@ -210,6 +216,7 @@ class AnnotationsServer:
         # Now retrieve data associated to the requested annotations; reuse query to skip toHexString calls
         query['id'] = query.pop('data_id')                
         matching_data = self.data_collection.query(query)
+        rospy.logdebug("Publish data for annotations on query %s" % query)
     
         i = 0
         object_list = list()
@@ -227,7 +234,8 @@ class AnnotationsServer:
             except StopIteration:
                 if (i == 0):
                     # This must be an error cause we verified before that at least one annotation is present!
-                    return self.serviceError(response, "No annotations data found for query %s" % query)
+                    return self.serviceError(response, "No data found for %d requested annotations"
+                                              % len(request.annotation_ids))
                 if i != len(request.annotation_ids):
                     # Don't need to be an error, as multiple annotations can reference the same data
                     rospy.logwarn("Only %d objects found for %d annotations" % (i, len(request.annotation_ids)))
@@ -398,9 +406,8 @@ class AnnotationsServer:
         response.result = False
         return response
 
-
 if __name__ == "__main__":
-    rospy.init_node('annotations_server')
+    rospy.init_node('annotations_server', log_level=rospy.DEBUG)
 
     AnnotationsServer()
   

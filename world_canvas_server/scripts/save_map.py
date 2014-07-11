@@ -35,7 +35,7 @@ def read(filename):
     ann.color.r = 0.2
     ann.color.g = 0.2
     ann.color.b = 0.2
-    ann.color.a = 1.0
+    ann.color.a = 0.01
     ann.size.x = yaml_data['info']['width'] * yaml_data['info']['resolution']
     ann.size.y = yaml_data['info']['height'] * yaml_data['info']['resolution']
     ann.size.z = 0.000001
