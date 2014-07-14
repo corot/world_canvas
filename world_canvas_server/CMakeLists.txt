@@ -5,6 +5,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rostest
   warehouse_ros
+  world_canvas_utils
   world_canvas_msgs
   visualization_msgs
 )

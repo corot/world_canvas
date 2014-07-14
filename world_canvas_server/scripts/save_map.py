@@ -1,17 +1,17 @@
 #!/usr/bin/env python
 
+import genpy
 import rospy
 import yaml
-import random
 import uuid
 import unique_id
-import cPickle as pickle
 import world_canvas_msgs.msg
 import world_canvas_msgs.srv
 
 from nav_msgs.msg import *
 from rospy_message_converter import message_converter
 from world_canvas_msgs.msg import Annotation, AnnotationData
+from world_canvas_utils.serialization import *
 
 
 def read(filename):
@@ -48,9 +48,7 @@ def read(filename):
     genpy.message.fill_message_args(object, yaml_data)
     map = AnnotationData()
     map.id = ann.data_id
-    map.data = pickle.dumps(object)
-    
-    print ann
+    map.data = serializeMsg(object)
     
     return [ann], [map]  # return as lists, as is what expects save_annotations_data service
 

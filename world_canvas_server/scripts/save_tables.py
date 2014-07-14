@@ -5,7 +5,6 @@ import yaml
 import random
 import uuid
 import unique_id
-import cPickle as pickle
 import world_canvas_msgs.msg
 import world_canvas_msgs.srv
 
@@ -13,6 +12,8 @@ from geometry_msgs.msg import *
 from rospy_message_converter import message_converter
 from yocs_msgs.msg import Table, TableList
 from world_canvas_msgs.msg import Annotation, AnnotationData
+from world_canvas_utils.serialization import *
+
 
 def read(filename):
     yaml_data = None 
@@ -62,12 +63,10 @@ def read(filename):
         object.pose.pose.pose = message_converter.convert_dictionary_to_ros_message('geometry_msgs/Pose',t['pose'])
         data = AnnotationData()
         data.id = ann.data_id
-        data.data = pickle.dumps(object)
+        data.data = serializeMsg(object)
         
         data_list.append(data)
-        
-        print ann, object, data
-    
+
     return anns_list, data_list
 
 if __name__ == '__main__':

@@ -5,16 +5,16 @@ import roslib
 import rostopic
 import importlib
 import yaml
-import uuid
 import copy
+import uuid
 import unique_id
-import cPickle as pickle
 import world_canvas_msgs.msg
 import world_canvas_msgs.srv
 
 from geometry_msgs.msg import *
 from rospy_message_converter import message_converter
 from visualization_msgs.msg import Marker, MarkerArray
+from world_canvas_utils.serialization import *
 
 
 def publish(anns, data, topic_name, topic_type, pub_as_list):
@@ -24,11 +24,15 @@ def publish(anns, data, topic_name, topic_type, pub_as_list):
 
     marker_id = 1
     for a, d in zip(anns, data):
-        
         # Objects
-        object = pickle.loads(d.data)
-        object_list.append(object)
+        type_class = roslib.message.get_message_class(a.type)
+        if type_class is None:
+            rospy.logerr('Topic type %s definition not found' % topic_type)
+            return False
         
+        object = deserializeMsg(d.data, type_class)
+        object_list.append(object)
+
         # Markers
         marker = Marker()
         marker.id = marker_id

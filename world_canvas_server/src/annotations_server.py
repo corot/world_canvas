@@ -37,13 +37,14 @@ import roslib; roslib.load_manifest('warehouse_ros')
 import roslib.message
 import rospy
 import unique_id
-import cPickle as pickle
+
 import warehouse_ros as wr
 
 from yaml_database import *
 
 from world_canvas_msgs.msg import *
 from world_canvas_msgs.srv import *
+from world_canvas_utils.serialization import *
 
 
 class AnnotationsServer:
@@ -199,17 +200,24 @@ class AnnotationsServer:
             return self.serviceError(response, "None of the %d requested annotations was found in database"
                                      % len(request.annotation_ids))
 
-        # Advertise a topic with message type request.topic_type if we will publish results as a list (note that we
-        # ignore list's type) or use the retrieved annotations type otherwise (we have verified that it's unique) 
-        if request.pub_as_list:
-            topic_type = request.topic_type
-
-        topic_class = roslib.message.get_message_class(topic_type)
-        if topic_class is None:
+        # Keep the class of the messages to be published; we need it later when deserializing them
+        msg_class = roslib.message.get_message_class(topic_type)
+        if msg_class is None:
             # This happens if the topic type is wrong or not known for the server (i.e. the package describing it is
             # absent from ROS_PACKAGE_PATH). The second condition is a tricky one, as is a big known limitation of WCF
             # (https://github.com/corot/world_canvas/issues/5)
             return self.serviceError(response, "Topic type %s definition not found" % topic_type)
+        
+        # Advertise a topic with message type request.topic_type if we will publish results as a list (note that we
+        # ignore list's type) or use the retrieved annotations type otherwise (we have verified that it's unique) 
+        if request.pub_as_list:
+            topic_type = request.topic_type
+            topic_class = roslib.message.get_message_class(topic_type)
+            if topic_class is None:
+                # Same comment as in previous serviceError call applies here
+                return self.serviceError(response, "Topic type %s definition not found" % topic_type)
+        else:
+            topic_class = msg_class
 
         pub = rospy.Publisher(request.topic_name, topic_class, latch=True, queue_size=5)
         
@@ -224,13 +232,16 @@ class AnnotationsServer:
             try:
                 # Get annotation data and deserialize data field to get the original message of type request.topic_type
                 ann_data = matching_data.next()[0]
-                object = pickle.loads(ann_data.data)
+                ann_msg = deserializeMsg(ann_data.data, msg_class)
                 if request.pub_as_list:
-                    object_list.append(object)
+                    object_list.append(ann_msg)
                 else:
-                    pub.publish(object)
+                    pub.publish(ann_msg)
                     
                 i += 1
+            except SerializationError as e:
+                rospy.logerr('Deserialization failed: %s' % str(e))
+                continue
             except StopIteration:
                 if (i == 0):
                     # This must be an error cause we verified before that at least one annotation is present!

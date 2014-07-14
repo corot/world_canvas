@@ -5,7 +5,6 @@ import yaml
 import uuid
 import copy
 import unique_id
-import cPickle as pickle
 import world_canvas_msgs.msg
 import world_canvas_msgs.srv
 
@@ -13,6 +12,7 @@ from geometry_msgs.msg import *
 from rospy_message_converter import message_converter
 from yocs_msgs.msg import Wall, WallList
 from visualization_msgs.msg import Marker, MarkerArray
+from world_canvas_utils.serialization import *
 
 
 def publish(anns, data):
@@ -23,7 +23,7 @@ def publish(anns, data):
     for a, d in zip(anns, data):
         
         # Walls
-        object = pickle.loads(d.data)
+        object = deserializeMsg(d.data, Wall)
         wall_list.obstacles.append(object)
         
         # Markers

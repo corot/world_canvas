@@ -41,11 +41,11 @@ import re
 import yaml
 import uuid
 import unique_id
-import cPickle as pickle
 import warehouse_ros as wr
 
 from world_canvas_msgs.msg import *
 from world_canvas_msgs.srv import *
+from world_canvas_utils.serialization import *
 
 
 class YAMLDatabase:
@@ -158,7 +158,7 @@ class YAMLDatabase:
                 genpy.message.fill_message_args(data, t['data'])
                 data_msg = AnnotationData()
                 data_msg.id = annotation.data_id
-                data_msg.data = pickle.dumps(data)
+                data_msg.data = serializeMsg(data)
                 self.data_collection.insert(data_msg, data_metadata, safe=True)
             except (genpy.MessageException, genpy.message.SerializationError) as e:
                 # TODO: here I would have an incoherence in db: annotations without data;
@@ -212,9 +212,17 @@ class YAMLDatabase:
                                                      "No data found with id %s" % data_id_str)
 
                         #  b) pack together with their referencing annotations in a dictionary
+
+                        # We need the annotation data class to deserialize the bytes array stored in database
+                        data_class = roslib.message.get_message_class(annotations[0].type)
+                        if data_class is None:
+                            rospy.logerr('Annotation type %s definition not found' % annotation.type)
+                            return False
+
+                        data = deserializeMsg(d.data, data_class)
                         entry = dict(
                             annotations = [yaml.load(genpy.message.strify_message(a)) for a in annotations],
-                            data = yaml.load(genpy.message.strify_message(pickle.loads(d.data)))
+                            data = yaml.load(genpy.message.strify_message(data))
                         )
                         entries.append(entry)
 
@@ -237,7 +245,7 @@ class YAMLDatabase:
                     # default_flow_style = False writes lists with an element per-line, (with -),
                     # what makes the output very long and not very readable. Method flowStyleLists
                     # makes uuids and covariances list flow-styled, i.e. [x, y, z, ...]
-                    dump = yaml.dump(entries, default_flow_style = False)
+                    dump = yaml.dump(entries, default_flow_style=False)
                     dump = self.flowStyleLists(dump)
                     
                     # Add a decimal point to exponential formated floats; if not, get loaded as strings,
