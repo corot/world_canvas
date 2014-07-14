@@ -1,11 +1,7 @@
 #!/usr/bin/env python
 
 import rospy
-import uuid
-import unique_id
 import world_canvas_msgs.srv
-
-from rospy_message_converter import message_converter
 
 
 if __name__ == '__main__':
