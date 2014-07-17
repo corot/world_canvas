@@ -81,6 +81,9 @@ class AnnotationsServer:
         self.set_related_srv = \
             rospy.Service('set_relationship', SetRelationship, self.setRelationship)
 
+        self.reset_database_srv = \
+            rospy.Service('reset_database', ResetDatabase, self.resetDatabase)
+
         # Configure services for import from/export to YAML file
         self.yaml_db = YAMLDatabase(self.anns_collection, self.data_collection)
         self.import_srv = \
@@ -386,6 +389,16 @@ class AnnotationsServer:
             self.anns_collection.update(metadata)
 
         # No error so return success
+        response.result = True
+        return response
+
+    def resetDatabase(self, request):
+        # Clear existing database content
+        self.anns_collection.remove({})
+        self.data_collection.remove({})
+
+        # No error so return success
+        response = ResetDatabaseResponse()
         response.result = True
         return response
 
