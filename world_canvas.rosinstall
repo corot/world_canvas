@@ -7,19 +7,17 @@
     version: master}
 
 # ROS required packages
-- git: {local-name: warehouse_ros, uri: 'https://github.com/corot/warehouse_ros.git ',
+- git: {local-name: warehouse_ros, uri: 'https://github.com/corot/warehouse_ros.git',
     version: master}
 
 # Testing playground 
 - git: {local-name: turtlebot_simulator, uri: 'https://github.com/turtlebot/turtlebot_simulator.git ',
     version: experimental}
+- git: {local-name: yocs_msgs, uri: 'https://github.com/yujinrobot/yocs_msgs.git',
+    version: indigo-devel}
 
 # Map store and legacy code
 - git: {local-name: annotations_store, uri: 'https://github.com/corot/annotations_store.git',
     version: hydro-devel}
 - git: {local-name: map_store, uri: 'https://github.com/ros-planning/map_store.git',
-    version: hydro-devel}
-
-# Legacy code deps
-- git: {local-name: yocs_msgs, uri: 'https://github.com/yujinrobot/yocs_msgs.git',
     version: hydro-devel}
