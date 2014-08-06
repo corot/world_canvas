@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-PKG = 'annotations_store'
-import roslib; roslib.load_manifest(PKG)
 import rospy
 import sys
 import annotations_store.srv
