@@ -33,7 +33,6 @@
 #
 # Author: Jorge Santos
 
-import roslib; roslib.load_manifest('warehouse_ros')
 import roslib.message
 import rospy
 import os
