@@ -39,6 +39,7 @@ import unique_id
 
 import warehouse_ros as wr
 
+from map_manager import *
 from yaml_database import *
 
 from world_canvas_msgs.msg import *
@@ -85,6 +86,9 @@ class AnnotationsServer:
 
         # Configure services for import from/export to YAML file
         self.yaml_db = YAMLDatabase(self.anns_collection, self.data_collection)
+
+        # Configure services for backward compatible map management
+        self.map_mng = MapManager()
         
         rospy.loginfo("Annotations server : initialized.")
 

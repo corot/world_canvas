@@ -17,6 +17,7 @@
   <run_depend>rospy</run_depend>
   <run_depend>roscpp</run_depend>
   <run_depend>rostest</run_depend>
+  <run_depend>nav_msgs</run_depend>
   <run_depend>python-pymongo</run_depend>
   <run_depend>warehouse_ros</run_depend>
   <run_depend>world_canvas_utils</run_depend>

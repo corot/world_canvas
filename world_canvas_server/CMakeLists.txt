@@ -4,6 +4,7 @@ project(world_canvas_server)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rostest
+  nav_msgs
   warehouse_ros
   world_canvas_utils
   world_canvas_msgs
