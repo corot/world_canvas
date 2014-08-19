@@ -85,11 +85,7 @@ class AnnotationsServer:
 
         # Configure services for import from/export to YAML file
         self.yaml_db = YAMLDatabase(self.anns_collection, self.data_collection)
-        self.import_srv = \
-            rospy.Service('yaml_import', YAMLImport, self.yaml_db.importFromYAML)
-        self.export_srv = \
-            rospy.Service('yaml_export', YAMLExport, self.yaml_db.exportToYAML)
-
+        
         rospy.loginfo("Annotations server : initialized.")
 
 
@@ -242,7 +238,7 @@ class AnnotationsServer:
                     
                 i += 1
             except SerializationError as e:
-                rospy.logerr('Deserialization failed: %s' % str(e))
+                rospy.logerr("Deserialization failed: %s" % str(e))
                 continue
             except StopIteration:
                 if (i == 0):
@@ -279,7 +275,7 @@ class AnnotationsServer:
                          'data_id' : unique_id.toHexString(annotation.data_id),
                          'id'      : unique_id.toHexString(annotation.id),
                          'name'    : annotation.name,
-                         'type'    : annotation.type,
+                         'type'    : annotation.type
                        }
 
             # Optional fields; note that both are stored as lists of strings
@@ -308,7 +304,7 @@ class AnnotationsServer:
         annot_id, metadata = self.getMetadata(request.id)
         
         if metadata is None:
-            response.message = 'Annotation not found' 
+            response.message = "Annotation not found" 
             response.result = False
             return response
 
@@ -318,8 +314,8 @@ class AnnotationsServer:
             return self.delElement(annot_id, request.keyword, metadata, 'keywords', response)
         else:
             # Sanity check against crazy service clients
-            rospy.logerr('Invalid action %d', request.action)
-            response.message = 'Invalid action: %d' % request.action
+            rospy.logerr("Invalid action %d", request.action)
+            response.message = "Invalid action: %d" % request.action
             response.result = False
             return response
 
@@ -340,8 +336,8 @@ class AnnotationsServer:
             return self.delElement(annot_id, relat_id, metadata, 'relationships', response)
         else:
             # Sanity check against crazy service clients
-            rospy.logerr('Invalid action: %d' % request.action)
-            response.message = 'Invalid action: %d' % request.action
+            rospy.logerr("Invalid action: %d" % request.action)
+            response.message = "Invalid action: %d" % request.action
             response.result = False
             return response
 
@@ -409,10 +405,10 @@ class AnnotationsServer:
     def getMetadata(self, uuid):
         # Get metadata for the given annotation id
         annot_id = unique_id.toHexString(uuid)
-        matching_anns = self.anns_collection.query({'id': {'$in': [annot_id]}})
+        matching_anns = self.anns_collection.query({'id': {'$in': [annot_id]}}, True)
 
         try:
-            return annot_id, matching_anns.next()[1]
+            return annot_id, matching_anns.next()
         except StopIteration:
             rospy.logwarn("Annotation %s not found" % annot_id)
             return annot_id, None

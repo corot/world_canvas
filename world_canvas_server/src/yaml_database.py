@@ -58,6 +58,10 @@ class YAMLDatabase:
         self.anns_collection = anns_collection
         self.data_collection = data_collection
 
+        # Set up services
+        self.import_srv = rospy.Service('yaml_import', YAMLImport, self.importFromYAML)
+        self.export_srv = rospy.Service('yaml_export', YAMLExport, self.exportToYAML)
+
     
     ##########################################################################
     # Services callbacks
@@ -75,7 +79,7 @@ class YAMLDatabase:
                 # load all documents
                 yaml_data = yaml.load(f)
                 if yaml_data is None:
-                    raise yaml.YAMLError('Empty files not allowed')
+                    raise yaml.YAMLError("Empty files not allowed")
         except yaml.YAMLError as e:
             return self.serviceError(response, "Invalid YAML file: %s" % (str(e)))
     
