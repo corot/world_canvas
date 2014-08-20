@@ -2,7 +2,7 @@
 
 import rospy
 import sys
-import annotations_store.srv
+import world_canvas_msgs.srv
 
 save_as = None
 try:
@@ -21,8 +21,8 @@ print "Waiting for /delete_map..."
 rospy.wait_for_service('/delete_map')
 
 print "Checking for duplicates..."
-list_last_maps = rospy.ServiceProxy('/list_maps', annotations_store.srv.ListMaps)
-delete_map = rospy.ServiceProxy('/delete_map', annotations_store.srv.DeleteMap)
+list_last_maps = rospy.ServiceProxy('/list_maps', world_canvas_msgs.srv.ListMaps)
+delete_map = rospy.ServiceProxy('/delete_map', world_canvas_msgs.srv.DeleteMap)
 maps = []
 try:
     maps = list_last_maps().map_list
@@ -36,7 +36,7 @@ for i in maps:
         delete_map(i.map_id)
 
 print "Starting service..."
-save_map = rospy.ServiceProxy('/save_map', annotations_store.srv.SaveMap)
+save_map = rospy.ServiceProxy('/save_map', world_canvas_msgs.srv.SaveMap)
 print "Saving map as", save_as
 save_map(save_as)
 print "Done"
