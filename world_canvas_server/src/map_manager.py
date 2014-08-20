@@ -97,13 +97,13 @@ class MapManager:
         self.map_subscriber = rospy.Subscriber('map', OccupancyGrid, self.onMapReceived, queue_size=1)
 
         # Use the current ROS time in seconds as the session id for saved maps
-        self.session_id = str(rospy.get_time())
+        self.rec_session = RecSession(self)
 
         # Set up map publisher and publish the last used map, if any
         self.map_publisher = rospy.Publisher('map', OccupancyGrid, latch=True, queue_size=1)
 
         try:
-            self.last_map = rospy.get_param('last_map_id')
+            self.last_map = rospy.get_param('~last_map_id')
             map = self.lookupMap(self.last_map)
             if map is None:
                 rospy.logerr("Invalid last_map_id: %s" % str(self.last_map))
@@ -120,7 +120,7 @@ class MapManager:
     ##########################################################################
 
     def listMaps(self, request):
-        rospy.logdebug("list_maps service call");
+        rospy.logdebug("Service call : list_maps");
         
         response = ListMapsResponse()
         
@@ -134,7 +134,7 @@ class MapManager:
 
                 # Add the map info to our result list.
                 new_entry = MapListEntry()
-                new_entry.name = map_md['name']
+                new_entry.name = map_md.get('name', '')  # name is missing when auto-saving under-construction maps
                 new_entry.date = map_md['creation_time']
                 new_entry.session_id = map_md['session_id']
                 new_entry.map_id = map_md['uuid']
@@ -142,8 +142,7 @@ class MapManager:
                 response.map_list.append(new_entry)
             except StopIteration:
                 break
-        
-        rospy.logdebug("list_maps : service call done")
+
         return response
 
 
@@ -153,12 +152,12 @@ class MapManager:
         try:
             return matching_maps.next()[0]
         except StopIteration:
-            rospy.logerr("publish_map : no map found for uuid %s" % uuid)
+            rospy.logerr("No map found for uuid %s" % uuid)
             return None
 
 
     def publishMap(self, request):
-        rospy.logdebug("publish_map : service call")
+        rospy.logdebug("Service call : publish_map %s" % request.map_id)
         response = PublishMapResponse()
 
         map = self.lookupMap(request.map_id)
@@ -167,7 +166,7 @@ class MapManager:
             return None
         else:
             self.last_map = request.map_id
-            rospy.set_param('last_map_id', self.last_map)
+            rospy.set_param('~last_map_id', self.last_map)
             self.map_publisher.publish(map)
 
         return response
@@ -176,8 +175,8 @@ class MapManager:
         rospy.logdebug("Service call : delete map %s" % request.map_id)
         response = DeleteMapResponse()
         
-        if rospy.has_param('last_map_id') and rospy.get_param('last_map_id') == request.map_id:
-            rospy.delete_param('last_map_id')
+        if rospy.has_param('~last_map_id') and rospy.get_param('~last_map_id') == request.map_id:
+            rospy.delete_param('~last_map_id')
         if self.last_map == request.map_id: 
             self.last_map = None
 
@@ -190,12 +189,8 @@ class MapManager:
         rospy.logdebug("Service call : rename map %s as %s" % (request.map_id, request.new_name))
         response = RenameMapResponse()
 
-        matching_maps = self.map_collection.query({'uuid': {'$in': [request.map_id]}}, True)
-
-        try:
-            map_metadata = matching_maps.next()
-        except StopIteration:
-            rospy.logerr("Map %s not found" % request.map_id)
+        map_metadata = self.getMetadata(request.map_id)
+        if map_metadata is None:
             return None
 
         map_metadata['name'] = request.new_name
@@ -217,43 +212,80 @@ class MapManager:
         return response
 
     def onMapReceived(self, map_msg):
-        rospy.logdebug("received map")
-        self.rec_map = map_msg
-#         std::string uuid_string = uuidGenerate();
-#         mr::Metadata metadata
-#           = mr::Metadata("uuid", uuid_string,
-#                  "session_id", session_id);
-#         
-#         map_collection->insert(*map_msg, metadata);
-#         
-#         rospy.logdebug("saved map");
-        
+        self.rec_session.map = map_msg
+
+        if not self.rec_session.auto_save:
+            rospy.logdebug("Map received but auto-save map is off")
+        else:
+            self.rec_session.save()
+
     def saveMap(self, request):
         rospy.logdebug("Service call : save current map as %s" % request.map_name)
         response = SaveMapResponse()
 
-#         nav_msgs::GetMap srv;
-#         if (!dynamic_map_service_client.call(srv)) {
-#           rospy.logerr("Dynamic map getter service call failed");
-#           return false;
-#         }
-        if hasattr(self, 'rec_map'):
-            metadata = {'uuid': str(unique_id.fromRandom()),
-                        'session_id': self.session_id,
-                        'name': request.map_name
-                       }
+        if self.rec_session.save(request.map_name) == False:
+            return None
 
-            rospy.logdebug("Saved map %d by %d @ %f as %s" % (self.rec_map.info.width, self.rec_map.info.height,
-                           self.rec_map.info.resolution, request.map_name))
+        return response
+
+    def getMetadata(self, uuid):
+        # Get metadata for the given map id
+        matching_maps = self.map_collection.query({'uuid': {'$in': [uuid]}}, True)
+        try:
+            return matching_maps.next()
+        except StopIteration:
+            rospy.logerr("Map %s not found" % uuid)
+            return None
+
+
+class RecSession:
+    '''
+    Keep track of incoming maps (through 'map' topic) so we can save automatically (if parameter
+    auto_save_map is set as true) or under demand (through save_map service).
+    To avoid spaming the database as on map_store/map_saver, we use the same metadata (with the
+    same uuid) so we instead overwrite the current session map with new data.
+    See https://github.com/ros-planning/map_store/issues/4 for more details.
+    '''
+    def __init__(self, parent):
+        
+        self.parent = parent
+        self.map = None
+        # Generate a unique uuid for the whole session
+        # No name field, so by default we save maps anonymously
+        # Use the current ROS time in seconds as the session id for saved maps
+        self.metadata = {'uuid': str(unique_id.fromRandom()),
+                         'session_id': str(rospy.get_time())
+                        }
+        self.auto_save = rospy.get_param('~auto_save_map', False)
+        self.map_saved = False
+
+    def save(self, name=None):
+        if name is not None:
+            self.metadata['name'] = name
+
+        if self.map is None:
+            rospy.logerr("No map received so far! Nothing to save")
+            return False
+
+        if not self.map_saved:
             try:
-                self.map_collection.insert(self.rec_map, metadata, safe=True)
+                self.parent.map_collection.insert(self.map, self.metadata, safe=True)
+                self.metadata = self.parent.getMetadata(self.metadata['uuid'])
+                if self.metadata is None:
+                    # This should not happen, obviously
+                    rospy.logerr("Map %s not found just after inserting it???" % request.map_id)
+                self.map_saved = True
             except Exception as e:
                 # Assume collection.insert raised this, as we set safe=True (typically a DuplicateKeyError)
                 # This should not happen, as we have generated an uuid; but just in case I copy-paste the code...
-                rospy.logerr("Insert annotation failed: %s" % str(e))
-                return None
-                
-            return response
+                rospy.logerr("Insert map failed: %s" % str(e))
+                return False
+
+            rospy.logdebug("Saved map %d by %d @ %f%s" % (self.map.info.width, self.map.info.height,
+                            self.map.info.resolution, ' as ' + name if name else ''))
         else:
-            rospy.logerr("No map received so far! Nothing to save")
-            return None
+            self.metadata['creation_time'] = rospy.Time.now().to_sec()
+            self.parent.map_collection.update(self.metadata, msg=self.map)
+            rospy.logdebug("Updated map %d by %d @ %f%s" % (self.map.info.width, self.map.info.height,
+                            self.map.info.resolution, ' as ' + name if name else ''))
+        return True

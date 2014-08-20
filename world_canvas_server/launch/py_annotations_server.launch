@@ -7,6 +7,7 @@
   </node> -->
 
   <node pkg="world_canvas_server" type="annotations_server.py" name="annotations_server" output="screen">
+    <param name="auto_save_map" value="false"/>
      <!-- unused topics -->
      <!-- <remap from="dynamic_map" to="annotations_store_dynamic_map"/>
      <remap from="map" to="annotations_store_map"/> -->
