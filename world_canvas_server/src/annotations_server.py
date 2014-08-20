@@ -88,7 +88,8 @@ class AnnotationsServer:
         self.yaml_db = YAMLDatabase(self.anns_collection, self.data_collection)
 
         # Configure services for backward compatible map management
-        self.map_mng = MapManager()
+        if rospy.get_param('~start_map_manager', False):
+            self.map_mng = MapManager()
         
         rospy.loginfo("Annotations server : initialized.")
 
@@ -430,7 +431,11 @@ class AnnotationsServer:
         return response
 
 if __name__ == "__main__":
-    rospy.init_node('annotations_server', log_level=rospy.DEBUG)
+    if sys.argv[1] == 'true':
+        # Only arguments is a debug='true'/'false' flag
+        rospy.init_node('world_canvas_server', log_level=rospy.DEBUG)
+    else:
+        rospy.init_node('world_canvas_server')
 
     AnnotationsServer()
   

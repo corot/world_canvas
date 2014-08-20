@@ -1,4 +1,6 @@
 <launch>
+  <arg name="debug" default="false"/>
+
 <!--   <param name="warehouse_host" value="localhost"/>
   <param name="warehouse_port" value="27017"/>  27017 is default, use a private one to avoid error 48 conflicts
   <node  pkg="warehouse_ros" type="mongo_wrapper_ros.py" name="mongo">
@@ -6,10 +8,8 @@
     <param name="overwrite" value="false"/>
   </node> -->
 
-  <node pkg="world_canvas_server" type="annotations_server.py" name="annotations_server" output="screen">
+  <node pkg="world_canvas_server" type="annotations_server.py" name="world_canvas_server" args="$(arg debug)" output="screen">
+    <param name="start_map_manager" value="true"/>
     <param name="auto_save_map" value="false"/>
-     <!-- unused topics -->
-     <!-- <remap from="dynamic_map" to="annotations_store_dynamic_map"/>
-     <remap from="map" to="annotations_store_map"/> -->
   </node> 
 </launch>
