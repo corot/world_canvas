@@ -56,25 +56,24 @@ if __name__ == '__main__':
     world    = rospy.get_param('~world')
     ids      = rospy.get_param('~ids', [])
     names    = rospy.get_param('~names', [])
-    types    = rospy.get_param('~types', [])
     keywords = rospy.get_param('~keywords', [])
     related  = rospy.get_param('~relationships', [])
 
     rospy.loginfo("Waiting for get_annotations service...")
     rospy.wait_for_service('get_annotations')
 
-    rospy.loginfo("Loading annotations for world %s", world)
+    rospy.loginfo("Loading annotations for world '%s'", world)
     get_anns_srv = rospy.ServiceProxy('get_annotations', world_canvas_msgs.srv.GetAnnotations)
     respAnns = get_anns_srv(world,
                            [unique_id.toMsg(uuid.UUID('urn:uuid:' + id)) for id in ids],
-                            names, types, keywords,
+                            names, ['yocs_msgs/Column'], keywords,
                            [unique_id.toMsg(uuid.UUID('urn:uuid:' + r)) for r in related])
 
     if len(respAnns.annotations) > 0:
         rospy.loginfo("Publishing visualization markers for %d retrieved annotations...",
                        len(respAnns.annotations))
     else:
-        rospy.loginfo("No annotations found for world %s with the given search criteria", world)
+        rospy.loginfo("No annotations found for world '%s' with the given search criteria", world)
         sys.exit()
 
     rospy.loginfo("Loading data for the %d retrieved annotations", len(respAnns.annotations))

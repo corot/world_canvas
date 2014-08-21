@@ -124,7 +124,7 @@ class YAMLDatabase:
                                  'id'      : unique_id.toHexString(annotation.id),
                                  'world'   : annotation.world,
                                  'name'    : annotation.name,
-                                 'type'    : annotation.type,
+                                 'type'    : annotation.type
                                }
         
                     # Optional fields; note that both are stored as lists of strings
@@ -160,6 +160,7 @@ class YAMLDatabase:
                 genpy.message.fill_message_args(data, t['data'])
                 data_msg = AnnotationData()
                 data_msg.id = annotation.data_id
+                data_msg.type = annotation.type
                 data_msg.data = serializeMsg(data)
                 self.data_collection.insert(data_msg, data_metadata, safe=True)
             except (genpy.MessageException, genpy.message.SerializationError) as e:

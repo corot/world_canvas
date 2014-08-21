@@ -58,6 +58,7 @@ def read(file):
         object.pose.pose = message_converter.convert_dictionary_to_ros_message('geometry_msgs/Pose',t['pose'])
         data = AnnotationData()
         data.id = ann.data_id
+        data.type = ann.type
         data.data = serializeMsg(object)
         
         data_list.append(data)

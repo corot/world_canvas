@@ -24,8 +24,9 @@ def publish(anns, data, topic_name, topic_type, pub_as_list):
 
     marker_id = 1
     for a, d in zip(anns, data):
+
         # Objects
-        type_class = roslib.message.get_message_class(a.type)
+        type_class = roslib.message.get_message_class(d.type)
         if type_class is None:
             rospy.logerr('Topic type %s definition not found' % topic_type)
             return False
@@ -106,7 +107,7 @@ if __name__ == '__main__':
     rospy.loginfo("Waiting for get_annotations service...")
     rospy.wait_for_service('get_annotations')
 
-    rospy.loginfo("Loading annotations for world %s", world)
+    rospy.loginfo("Loading annotations for world '%s'", world)
     get_anns_srv = rospy.ServiceProxy('get_annotations', world_canvas_msgs.srv.GetAnnotations)
     respAnns = get_anns_srv(world,
                            [unique_id.toMsg(uuid.UUID('urn:uuid:' + id)) for id in ids],
@@ -117,7 +118,7 @@ if __name__ == '__main__':
         rospy.loginfo("Publishing visualization markers for %d retrieved annotations...",
                        len(respAnns.annotations))
     else:
-        rospy.loginfo("No annotations found for world %s with the given search criteria", world)
+        rospy.loginfo("No annotations found for world '%s' with the given search criteria", world)
         sys.exit()
 
     rospy.loginfo("Loading data for the %d retrieved annotations", len(respAnns.annotations))
