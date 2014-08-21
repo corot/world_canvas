@@ -114,16 +114,15 @@ class YAMLDatabase:
                     prev_data_id = annotation.data_id.uuid
                     
                     # Forced conversion because UUID expects a string of 16 bytes, not a list
-                    annotation.world_id.uuid = ''.join(chr(x) for x in annotation.world_id.uuid)
                     annotation.data_id.uuid = ''.join(chr(x) for x in annotation.data_id.uuid)
                     annotation.id.uuid = ''.join(chr(x) for x in annotation.id.uuid)
                     for r in annotation.relationships:
                         r.uuid = ''.join(chr(x) for x in r.uuid)
         
                     # Compose metadata: mandatory fields
-                    metadata = { 'world_id': unique_id.toHexString(annotation.world_id),
-                                 'data_id' : unique_id.toHexString(annotation.data_id),
+                    metadata = { 'data_id' : unique_id.toHexString(annotation.data_id),
                                  'id'      : unique_id.toHexString(annotation.id),
+                                 'world'   : annotation.world,
                                  'name'    : annotation.name,
                                  'type'    : annotation.type,
                                }
@@ -134,7 +133,7 @@ class YAMLDatabase:
                     if len(annotation.relationships) > 0:
                         metadata['relationships'] = [unique_id.toHexString(r) for r in annotation.relationships]
                         
-                    rospy.logdebug("Saving annotation %s for map %s" % (annotation.id, annotation.world_id))
+                    rospy.logdebug("Saving annotation %s for world %s" % (annotation.id, annotation.world))
             
                     # TODO  recuperate if implement TODO on line 83                   self.anns_collection.remove({'id': {'$in': [unique_id.toHexString(annotation.id)]}})
                     

@@ -14,20 +14,20 @@ from world_canvas_msgs.msg import Annotation, AnnotationData
 from world_canvas_utils.serialization import *
 
 
-def read(filename):
+def read(file):
     '''
     Parse a yaml file containing a single map message
-    @param filename Target file path
+    @param file Target file path
     '''
     yaml_data = None 
-    with open(filename) as f:
+    with open(file) as f:
        yaml_data = yaml.load(f)
       
     ann = Annotation()
     ann.timestamp = rospy.Time.now()
-    ann.world_id = unique_id.toMsg(uuid.UUID('urn:uuid:' + world_id))
     ann.data_id = unique_id.toMsg(unique_id.fromRandom())
     ann.id = unique_id.toMsg(unique_id.fromRandom())
+    ann.world = world
     ann.name = map_name
     ann.type = 'nav_msgs/OccupancyGrid'
     ann.keywords.append(map_name)
@@ -54,15 +54,15 @@ def read(filename):
 
 if __name__ == '__main__':
     rospy.init_node('map_saver')
-    world_id = rospy.get_param('~world_id')
+    file     = rospy.get_param('~file')
+    world    = rospy.get_param('~world')
     map_name = rospy.get_param('~map_name')
-    filename = rospy.get_param('~filename')
-    ann, map = read(filename)
+    ann, map = read(file)
 
-    print "Waiting for save_annotations_data service..."
+    rospy.loginfo("Waiting for save_annotations_data service...")
     rospy.wait_for_service('save_annotations_data')
     save_srv = rospy.ServiceProxy('save_annotations_data', world_canvas_msgs.srv.SaveAnnotationsData)
 
-    print 'Saving map from ', filename,' with world uuid ', world_id
-    save_srv(unique_id.toMsg(uuid.UUID('urn:uuid:' + world_id)), ann, map)
-    print "Done"
+    rospy.loginfo("Saving map from file '%s' for world '%s'" % (file, world))
+    save_srv(ann, map)
+    rospy.loginfo("Done")

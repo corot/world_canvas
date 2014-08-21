@@ -10,14 +10,14 @@ import world_canvas_msgs.srv
 
 from geometry_msgs.msg import *
 from rospy_message_converter import message_converter
-from ar_track_alvar.msg import AlvarMarkers, AlvarMarker
+from ar_track_alvar_msgs.msg import AlvarMarkers, AlvarMarker
 from world_canvas_msgs.msg import Annotation, AnnotationData
 from world_canvas_utils.serialization import *
 
 
-def read(filename):
+def read(file):
     yaml_data = None 
-    with open(filename) as f:
+    with open(file) as f:
        yaml_data = yaml.load(f)
 
     anns_list = []
@@ -26,11 +26,11 @@ def read(filename):
     for t in yaml_data:
         ann = Annotation()
         ann.timestamp = rospy.Time.now()
-        ann.world_id = unique_id.toMsg(uuid.UUID('urn:uuid:' + world_id))
         ann.data_id = unique_id.toMsg(unique_id.fromRandom())
         ann.id = unique_id.toMsg(unique_id.fromRandom())
+        ann.world = world
         ann.name = t['name']
-        ann.type = 'ar_track_alvar/AlvarMarker'
+        ann.type = 'ar_track_alvar_msgs/AlvarMarker'
         for i in range(0, random.randint(0,11)):
             ann.keywords.append('kw'+str(random.randint(1,11)))
         # if 'prev_id' in vars():
@@ -68,14 +68,14 @@ def read(filename):
 
 if __name__ == '__main__':
     rospy.init_node('markers_saver')
-    world_id = rospy.get_param('~world_id')
-    filename = rospy.get_param('~filename')
-    anns, data = read(filename)
+    world = rospy.get_param('~world')
+    file  = rospy.get_param('~file')
+    anns, data = read(file)
 
-    print "Waiting for save_annotations_data service..."
+    rospy.loginfo("Waiting for save_annotations_data service...")
     rospy.wait_for_service('save_annotations_data')
     save_srv = rospy.ServiceProxy('save_annotations_data', world_canvas_msgs.srv.SaveAnnotationsData)
 
-    print 'Saving AR markers from ', filename,' with world uuid ', world_id
-    save_srv(unique_id.toMsg(uuid.UUID('urn:uuid:' + world_id)), anns, data)
-    print "Done"
+    rospy.loginfo("Saving AR markers from file '%s' for world '%s'" % (file, world))
+    save_srv(anns, data)
+    rospy.loginfo("Done")

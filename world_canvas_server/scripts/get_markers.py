@@ -10,7 +10,7 @@ import world_canvas_msgs.srv
 
 from geometry_msgs.msg import *
 from rospy_message_converter import message_converter
-from ar_track_alvar.msg import AlvarMarkers, AlvarMarker
+from ar_track_alvar_msgs.msg import AlvarMarkers, AlvarMarker
 from visualization_msgs.msg import Marker, MarkerArray
 from world_canvas_utils.serialization import *
 
@@ -53,7 +53,7 @@ def publish(anns, data):
 
 if __name__ == '__main__':
     rospy.init_node('ar_mks_loader')
-    world_id = rospy.get_param('~world_id')
+    world    = rospy.get_param('~world')
     ids      = rospy.get_param('~ids', [])
     names    = rospy.get_param('~names', [])
     types    = rospy.get_param('~types', [])
@@ -63,29 +63,29 @@ if __name__ == '__main__':
     rospy.loginfo("Waiting for get_annotations service...")
     rospy.wait_for_service('get_annotations')
 
-    rospy.loginfo('Loading annotations with map uuid %s', world_id)
+    rospy.loginfo("Loading annotations for world %s", world)
     get_anns_srv = rospy.ServiceProxy('get_annotations', world_canvas_msgs.srv.GetAnnotations)
-    respAnns = get_anns_srv(unique_id.toMsg(uuid.UUID('urn:uuid:' + world_id)),
+    respAnns = get_anns_srv(world,
                            [unique_id.toMsg(uuid.UUID('urn:uuid:' + id)) for id in ids],
                             names, types, keywords,
                            [unique_id.toMsg(uuid.UUID('urn:uuid:' + r)) for r in related])
 
     if len(respAnns.annotations) > 0:
-        rospy.loginfo('Publishing visualization markers for %d retrieved annotations...',
+        rospy.loginfo("Publishing visualization markers for %d retrieved annotations...",
                        len(respAnns.annotations))
     else:
-        rospy.loginfo('No annotations found for map %s with the given search criteria', world_id)
+        rospy.loginfo("No annotations found for world %s with the given search criteria", world)
         sys.exit()
 
-    rospy.loginfo('Loading data for the %d retrieved annotations', len(respAnns.annotations))
+    rospy.loginfo("Loading data for the %d retrieved annotations", len(respAnns.annotations))
     get_data_srv = rospy.ServiceProxy('get_annotations_data', world_canvas_msgs.srv.GetAnnotationsData)
     respData = get_data_srv([a.data_id for a in respAnns.annotations])
 
     if len(respData.data) > 0:
-        rospy.loginfo('Publishing data for %d retrieved annotations...', len(respData.data))
+        rospy.loginfo("Publishing data for %d retrieved annotations...", len(respData.data))
         publish(respAnns.annotations, respData.data)
     else:
-        rospy.logwarn('No data found for the %d retrieved annotations', len(respAnns.annotations))
+        rospy.logwarn("No data found for the %d retrieved annotations", len(respAnns.annotations))
         
     rospy.loginfo("Done")
     rospy.spin()

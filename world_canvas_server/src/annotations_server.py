@@ -57,6 +57,10 @@ class AnnotationsServer:
         # Set up collections: for every annotation, we store an AnnotationData message plus 1 or
         # more Annotation messages, the first containing the an id and a serialized representation
         # of a message of type annotation.type (data field)
+        self.world_collection = \
+            wr.MessageCollection("world_canvas", "worlds", WorldCanvas)
+        self.world_collection.ensure_index("id", unique=True)
+
         self.anns_collection = \
             wr.MessageCollection("world_canvas", "annotations", Annotation)
         self.anns_collection.ensure_index("id", unique=True)
@@ -103,10 +107,10 @@ class AnnotationsServer:
         response = GetAnnotationsResponse()
         
         # Compose query concatenating filter criteria in an '$and' operator
-        # Except world_id, all criteria are lists: operator '$in' makes a N to N matching
+        # Except world, all criteria are lists: operator '$in' makes a N to N matching
         # Empty fields are ignored
         query = {'$and':[]}
-        query['$and'].append({'world_id': {'$in': [unique_id.toHexString(request.world_id)]}})
+        query['$and'].append({'world': {'$in': [request.world]}})
         if len(request.ids) > 0:
             query['$and'].append({'id': {'$in': [unique_id.toHexString(id) for id in request.ids]}})
         if len(request.names) > 0:
@@ -276,7 +280,7 @@ class AnnotationsServer:
         for annotation, data in zip(request.annotations, request.data):
             
             # Compose metadata: mandatory fields
-            metadata = { 'world_id': unique_id.toHexString(annotation.world_id),
+            metadata = { 'world'   : annotation.world,
                          'data_id' : unique_id.toHexString(annotation.data_id),
                          'id'      : unique_id.toHexString(annotation.id),
                          'name'    : annotation.name,
@@ -292,7 +296,7 @@ class AnnotationsServer:
             # Data metadata: just the object id, as all querying is done over the annotations
             data_metadata = { 'id' : unique_id.toHexString(annotation.data_id) }
 
-            rospy.logdebug("Saving annotation %s for map %s" % (annotation.id, annotation.world_id))
+            rospy.logdebug("Saving annotation %s for world %s" % (annotation.id, annotation.world))
 
             # Insert both annotation and associated data to the appropriate collection
             self.anns_collection.remove({'id': {'$in': [unique_id.toHexString(annotation.id)]}})
@@ -394,6 +398,7 @@ class AnnotationsServer:
 
     def resetDatabase(self, request):
         # Clear existing database content
+        self.world_collection.remove({})
         self.anns_collection.remove({})
         self.data_collection.remove({})
 
