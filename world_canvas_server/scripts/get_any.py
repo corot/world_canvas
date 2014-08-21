@@ -94,7 +94,7 @@ if __name__ == '__main__':
     topic_type  = rospy.get_param('~topic_type', None)
     pub_as_list = rospy.get_param('~pub_as_list', False)
     world    = rospy.get_param('~world')
-    ids      = rospy.get_param('~ids', [])
+    uuids    = rospy.get_param('~uuids', [])
     names    = rospy.get_param('~names', [])
     types    = rospy.get_param('~types', [])
     keywords = rospy.get_param('~keywords', [])
@@ -110,9 +110,9 @@ if __name__ == '__main__':
     rospy.loginfo("Loading annotations for world '%s'", world)
     get_anns_srv = rospy.ServiceProxy('get_annotations', world_canvas_msgs.srv.GetAnnotations)
     respAnns = get_anns_srv(world,
-                           [unique_id.toMsg(uuid.UUID('urn:uuid:' + id)) for id in ids],
+                           [unique_id.toMsg(uuid.UUID('urn:uuid:' + id)) for id in uuids],
                             names, types, keywords,
-                           [unique_id.toMsg(uuid.UUID('urn:uuid:' + r)) for r in related])
+                           [unique_id.toMsg(uuid.UUID('urn:uuid:' + id)) for id in related])
 
     if len(respAnns.annotations) > 0:
         rospy.loginfo("Publishing visualization markers for %d retrieved annotations...",
