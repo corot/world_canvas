@@ -1,6 +1,7 @@
+#!/usr/bin/env python
 # Software License Agreement (BSD License)
 #
-# Copyright (c) 2012, Willow Garage, Inc.
+# Copyright (c) 2014, Yujin Robot
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -29,6 +30,8 @@
 # LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
+#
+# Author: Jorge Santos
 
 import rospy
 import tf
@@ -41,8 +44,8 @@ from math import sqrt, atan, pi, degrees
 from nav_msgs.msg import OccupancyGrid, Path
 from geometry_msgs.msg import PolygonStamped, PointStamped, PoseWithCovarianceStamped, PoseStamped
 
-from python_qt_binding.QtCore import Signal, Slot, QPointF, qWarning, Qt
-from python_qt_binding.QtGui import QWidget, QPixmap, QImage, QGraphicsView, QGraphicsScene, QPainterPath, QPen, QPolygonF, QVBoxLayout, QHBoxLayout, QColor, qRgb, QPushButton
+from python_qt_binding.QtCore import *
+from python_qt_binding.QtGui import *
 
 from rqt_py_common.topic_helpers import get_field_type
 
@@ -67,12 +70,12 @@ class PathInfo(object):
         self.name = name
 
 
-class NavViewWidget(QWidget):
+class MapViewWidget(QWidget):
 
     def __init__(self, map_topic='/map',
                  paths=['/move_base/NavFn/plan', '/move_base/TrajectoryPlannerROS/local_plan'],
                  polygons=['/move_base/local_costmap/robot_footprint']):
-        super(NavViewWidget, self).__init__()
+        super(MapViewWidget, self).__init__()
         self._layout = QVBoxLayout()
         self._button_layout = QHBoxLayout()
 
@@ -84,15 +87,27 @@ class NavViewWidget(QWidget):
         self.map = map_topic
         self._tf = tf.TransformListener()
 
-        self._nav_view = NavView(map_topic, paths, polygons, tf = self._tf, parent = self)
+        self._nav_view = MapView(map_topic, paths, polygons, tf = self._tf, parent = self)
 
         self._set_pose = QPushButton('Set Pose')
         self._set_pose.clicked.connect(self._nav_view.pose_mode)
         self._set_goal = QPushButton('Set Goal')
         self._set_goal.clicked.connect(self._nav_view.goal_mode)
-
         self._button_layout.addWidget(self._set_pose)
         self._button_layout.addWidget(self._set_goal)
+
+        self._button_layout.addStretch(100)
+
+        self._pose_x = QLineEdit('')
+        self._pose_x.setReadOnly(True)
+        self._pose_x.setFixedWidth(160)
+        self._pose_y = QLineEdit('')
+        self._pose_y.setReadOnly(True)
+        self._pose_y.setFixedWidth(160)
+        self._button_layout.addWidget(QLabel('x'))
+        self._button_layout.addWidget(self._pose_x)
+        self._button_layout.addWidget(QLabel('y'))
+        self._button_layout.addWidget(self._pose_y)
 
         self._layout.addLayout(self._button_layout)
 
@@ -103,12 +118,12 @@ class NavViewWidget(QWidget):
     def dragEnterEvent(self, e):
         if not e.mimeData().hasText():
             if not hasattr(e.source(), 'selectedItems') or len(e.source().selectedItems()) == 0:
-                qWarning('NavView.dragEnterEvent(): not hasattr(event.source(), selectedItems) or len(event.source().selectedItems()) == 0')
+                qWarning('MapView.dragEnterEvent(): not hasattr(event.source(), selectedItems) or len(event.source().selectedItems()) == 0')
                 return
             item = e.source().selectedItems()[0]
             topic_name = item.data(0, Qt.UserRole)
             if topic_name == None:
-                qWarning('NavView.dragEnterEvent(): not hasattr(item, ros_topic_name_)')
+                qWarning('MapView.dragEnterEvent(): not hasattr(item, ros_topic_name_)')
                 return
 
         else:
@@ -132,7 +147,7 @@ class NavViewWidget(QWidget):
 
                 # Swap out the nav view for one with the new topics
                 self._nav_view.close()
-                self._nav_view = NavView(self.map, self.paths, self.polygons, self._tf, self)
+                self._nav_view = MapView(self.map, self.paths, self.polygons, self._tf, self)
                 self._layout.addWidget(self._nav_view)
             elif topic_type is Path:
                 self.paths.append(topic_name)
@@ -148,7 +163,7 @@ class NavViewWidget(QWidget):
         self._nav_view.restore_settings(plugin_settings, instance_settings)
 
 
-class NavView(QGraphicsView):
+class MapView(QGraphicsView):
     map_changed = Signal()
     path_changed = Signal(str)
     polygon_changed = Signal(str)
@@ -156,7 +171,7 @@ class NavView(QGraphicsView):
     def __init__(self, map_topic='/map',
                  paths=['/move_base/SBPLLatticePlanner/plan', '/move_base/TrajectoryPlannerROS/local_plan'],
                  polygons=['/move_base/local_costmap/robot_footprint'], tf=None, parent=None):
-        super(NavView, self).__init__()
+        super(MapView, self).__init__()
         self._parent = parent
 
         self._pose_mode = False
@@ -247,7 +262,12 @@ class NavView(QGraphicsView):
             image.setColor(100 - i, qRgb(i* 2.55, i * 2.55, i * 2.55))
         image.setColor(101, qRgb(255, 0, 0))  # not used indices
         image.setColor(255, qRgb(200, 200, 200))  # color for unknown value -1
-        self._map = image
+     
+        # Rotate the map to align it with an identity transformed map frame TODO: allow non-id map tfs   
+        rotate = QTransform()
+        rotate.rotate(180)
+     
+        self._map = image.transformed(rotate)
         self.setSceneRect(0, 0, self.w, self.h)
         self.map_changed.emit()
 
@@ -351,6 +371,10 @@ class NavView(QGraphicsView):
             self._goal_mode = False
             self.setDragMode(QGraphicsView.ScrollHandDrag)
 
+    def get_position(self, e, mirror=True):
+        p = self.mapToScene(e.x(), e.y())
+        return [p.x() * self.resolution, (self.h - p.y()) * self.resolution]
+
     def draw_position(self, e, mirror=True):
         p = self.mapToScene(e.x(), e.y())
         v = (p.x() - self.drag_start[0], p.y() - self.drag_start[1])
@@ -384,7 +408,7 @@ class NavView(QGraphicsView):
             p = self.mapToScene(e.x(), e.y())
             self.drag_start = (p.x(), p.y())
         else:
-            super(NavView, self).mousePressEvent(e)
+            super(MapView, self).mousePressEvent(e)
 
     def mouseReleaseEvent(self, e):
         if self._goal_mode:
@@ -423,9 +447,14 @@ class NavView(QGraphicsView):
             self._scene.removeItem(self.last_path)
             self.last_path = None
 
-    #def mouseMoveEvent(self, e):
-    #    if e.buttons() == Qt.LeftButton and (self._pose_mode or self._goal_mode):
-    #        map_p, quat = self.draw_position(e)
+    def mouseMoveEvent(self, e):
+        x, y = self.get_position(e)
+        self._parent._pose_x.setText("%.3f" % x)
+        self._parent._pose_y.setText("%.3f" % y)
+        if e.buttons() == Qt.LeftButton and (self._pose_mode or self._goal_mode):
+            map_p, quat = self.draw_position(e)
+            self._parent._pose_x.setText(str("%.3f" % map_p[0]))
+            self._parent._pose_y.setText(str("%.3f" % map_p[1]))
 
     def close(self):
         if self.map_sub:
@@ -438,7 +467,7 @@ class NavView(QGraphicsView):
             if p.sub:
                 p.sub.unregister()
 
-        super(NavView, self).close()
+        super(MapView, self).close()
 
     def _update(self):
         if self._map_item:

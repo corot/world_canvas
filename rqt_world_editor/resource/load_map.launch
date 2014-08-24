@@ -1,0 +1,13 @@
+<launch>
+  <arg name="map_name"       default="robopark_plan"/> <!-- robopark_plan -->
+  <arg name="initial_pose_x" default="2.0"/>
+  <arg name="initial_pose_y" default="2.0"/>
+  <arg name="initial_pose_a" default="0.0"/>
+
+  <node name="map_server" pkg="map_server" type="map_server" args="$(find turtlebot_stage)/maps/$(arg map_name).yaml">
+    <param name="frame_id" value="/map"/>
+  </node>
+
+  <!--  **************** Visualisation ****************  
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find turtlebot_stage)/rviz/robot_navigation.rviz"/>-->
+</launch>

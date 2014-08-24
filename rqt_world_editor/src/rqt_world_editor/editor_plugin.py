@@ -37,7 +37,7 @@ import os
 import rospy
 
 from qt_gui.plugin import Plugin
-from .map_view import NavViewWidget
+from .map_view import MapViewWidget
 from .msg_widget import PublisherWidget
 
 from python_qt_binding import loadUi
@@ -50,22 +50,22 @@ class EditorPlugin(Plugin):
         self.setObjectName('MainGUI')
 
         # Create NavViewWidget
-        self._widget = NavViewWidget()
+        self._map_widget = MapViewWidget()
         # Get path to UI file which is a sibling of this file
 #        ui_file = os.path.join(self._rospack.get_path('rqt_world_editor'), 'resource', 'world_editor.ui')
         # Extend the widget with all attributes and children from UI file
-#        loadUi(ui_file, self._widget)
+#        loadUi(ui_file, self._map_widget)
         # Give QObjects reasonable names
-        self._widget.setObjectName('Map View')
-        # Show _widget.windowTitle on left-top of each plugin (when 
-        # it's set in _widget). This is useful when you open multiple 
+        self._map_widget.setObjectName('Map View')
+        # Show _map_widget.windowTitle on left-top of each plugin (when 
+        # it's set in _map_widget). This is useful when you open multiple 
         # plugins at once. Also if you open multiple instances of your 
         # plugin at once, these lines add number to make it easy to 
         # tell from pane to pane.
         if context.serial_number() > 1:
-            self._widget.setWindowTitle(self._widget.windowTitle() + (' (%d)' % context.serial_number()))
+            self._map_widget.setWindowTitle(self._map_widget.windowTitle() + (' (%d)' % context.serial_number()))
         # Add widget to the user interface
-        context.add_widget(self._widget)
+        context.add_widget(self._map_widget)
         
         # Create a message view widget
         self._msg_widget = PublisherWidget()
@@ -75,7 +75,7 @@ class EditorPlugin(Plugin):
 #         self._msg_widget.remove_publisher.connect(self.remove_publisher)
 #         self._msg_widget.clean_up_publishers.connect(self.clean_up_publishers)
         if context.serial_number() > 1:
-            self._msg_widget.setWindowTitle(self._widget.windowTitle() + (' (%d)' % context.serial_number()))
+            self._msg_widget.setWindowTitle(self._map_widget.windowTitle() + (' (%d)' % context.serial_number()))
 
         context.add_widget(self._msg_widget)
 
@@ -87,12 +87,12 @@ class EditorPlugin(Plugin):
     def save_settings(self, plugin_settings, instance_settings):
         # TODO save intrinsic configuration, usually using:
         # instance_settings.set_value(k, v)
-        self._widget.save_settings(plugin_settings, instance_settings)
+        self._map_widget.save_settings(plugin_settings, instance_settings)
 
     def restore_settings(self, plugin_settings, instance_settings):
         # TODO restore intrinsic configuration, usually using:
         # v = instance_settings.value(k)
-        self._widget.restore_settings(plugin_settings, instance_settings)
+        self._map_widget.restore_settings(plugin_settings, instance_settings)
 
     #def trigger_configuration(self):
         # Comment in to signal that the plugin has a way to configure
