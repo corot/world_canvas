@@ -1,15 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(world_canvas_server)
 
-find_package(catkin REQUIRED COMPONENTS
-  rospy
-  rostest
-  nav_msgs
-  warehouse_ros
-  world_canvas_utils
-  world_canvas_msgs
-  visualization_msgs
-)
+find_package(catkin REQUIRED)
 
 catkin_package()
 
