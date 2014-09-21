@@ -1,0 +1,10 @@
+<library path="lib/libworld_canvas_editor">
+  <class name="world_canvas/Annotations Editor"
+         type="world_canvas::RVizPluginEditor"
+         base_class_type="rviz::Panel">
+    <description>
+      World Canvas Framework Annotations Editor.
+      Tool for adding semantic information (called annotations) to geometric maps.
+    </description>
+  </class>
+</library>

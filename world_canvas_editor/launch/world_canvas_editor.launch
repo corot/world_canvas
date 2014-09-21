@@ -1,0 +1,60 @@
+<!-- 
+  Edit a world on WCF (World Canvas Framework)
+  - world canvas editor (RViz)
+  - world canvas server
+  - world canvas client
+    > load map for the given world
+    > load existing annotations
+  WARN: launch populate_world.launch if you need to create a world on WCF database!
+ -->
+<launch>
+  <arg name="world" default="Maze world"/>
+
+  <arg name="py_client_lib" default="false"/>
+  <arg name="cpp_client_lib" default="true"/>
+
+  <!-- World canvas editor -->
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find world_canvas_editor)/rviz/world_canvas_editor.rviz"/>
+  
+  <!-- World canvas server -->
+  <include file="$(find world_canvas_server)/launch/world_canvas_server.launch">
+  	<arg name="debug" value="true"/>
+  </include>
+
+  <!-- Publish world elements: make world canvas server publish 2D map and virtual sensor obstacles... -->
+
+  <!-- ...using Python client library -->
+  <node if="$(arg py_client_lib)" name="world_canvas_client" pkg="turtlebot_stage" type="publish_world.py">
+    <param name="world" value="$(arg world)"/>
+  </node>
+
+  <!-- ...using C++ client library -->
+  <node if="$(arg cpp_client_lib)" name="map_publisher" pkg="world_canvas_client_examples" type="test_annotation_collection">
+    <param name="world"       value="$(arg world)"/>
+    <param name="topic_name"  value="map"/>
+    <param name="pub_as_list" value="false"/>
+    <rosparam param="types">[nav_msgs/OccupancyGrid]</rosparam>
+  </node>
+
+<!--
+  <node if="$(arg cpp_client_lib)" name="wall_publisher" pkg="world_canvas_client_examples" type="test_annotation_collection">
+    <param name="world"       value="$(arg world)"/>
+    <param name="topic_name"  value="wall_pose_list"/>
+    <param name="topic_type"  value="yocs_msgs/WallList"/>
+    <param name="pub_as_list" value="true"/>
+    <rosparam param="types">[yocs_msgs/Wall]</rosparam>
+  </node>
+ 
+  <node if="$(arg cpp_client_lib)" name="column_publisher" pkg="world_canvas_client_examples" type="test_annotation_collection">
+    <param name="world"       value="$(arg world)"/>
+    <param name="topic_name"  value="column_pose_list"/>
+    <param name="topic_type"  value="yocs_msgs/ColumnList"/>
+    <param name="pub_as_list" value="true"/>
+    <rosparam param="types">[yocs_msgs/Column]</rosparam>
+  </node>
+ -->
+
+  <!-- Provide a map frame where to reference map and annotations -->
+  <node pkg="tf" type="static_transform_publisher" name="map_frame_pub"
+        args="0.0 0.0 0.0 0.0 0.0 0.0 /map /odom 200"/>
+</launch>

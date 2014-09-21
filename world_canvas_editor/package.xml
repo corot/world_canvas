@@ -1,0 +1,35 @@
+<package>
+  <name>world_canvas_editor</name>
+  <version>0.1.0</version>
+  <description>
+     World Canvas Framework Annotations Editor.
+     Tool for adding semantic information (called annotations) to geometric maps.
+  </description>
+  <author email="jsantossimon@gmail.com">Jorge Santos Simón</author>
+  <maintainer email="jsantossimon@gmail.com">Jorge Santos Simón</maintainer>
+  <license>BSD</license>
+  <url type="website">http://ros.org/wiki/world_canvas_editor</url>
+  <url type="repository">https://github.com/corot/world_canvas</url>
+  <url type="bugtracker">https://github.com/corot/world_canvas/issues</url>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>rviz</build_depend>
+  <build_depend>roscpp</build_depend>
+  <build_depend>topic_tools</build_depend>
+  <build_depend>world_canvas_msgs</build_depend>
+  <build_depend>world_canvas_client_cpp</build_depend>
+  <build_depend>yocs_math_toolkit</build_depend>
+
+  <run_depend>rviz</run_depend>
+  <run_depend>roscpp</run_depend>
+  <run_depend>topic_tools</run_depend>
+  <run_depend>world_canvas_msgs</run_depend>
+  <run_depend>world_canvas_client_cpp</run_depend>
+  <run_depend>yocs_math_toolkit</run_depend>
+
+  <export>
+      <rosdoc config="${prefix}/rosdoc.yaml"/>
+      <rviz plugin="${prefix}/plugin_description.xml"/>
+  </export>
+</package>
