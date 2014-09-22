@@ -107,6 +107,14 @@
            <string>Data</string>
           </property>
          </widget>
+         <widget class="QPushButton" name="saveAnnButton">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="text">
+           <string>Save</string>
+          </property>
+         </widget>
         </widget>
        </item>
        <item>

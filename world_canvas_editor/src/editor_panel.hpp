@@ -82,6 +82,7 @@ public Q_SLOTS:
   void newButtonClicked();
   void updButtonClicked();
   void msgButtonClicked();
+  void saveButtonClicked();
 
   void annot2widgets( world_canvas_msgs::Annotation::Ptr annot);
   void widgets2annot( world_canvas_msgs::Annotation::Ptr annot);

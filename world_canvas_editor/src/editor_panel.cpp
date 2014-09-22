@@ -33,11 +33,11 @@
 
 #include <QProcess>
 
-#include <unique_id/unique_id.h>
-
 #include <visualization_msgs/Marker.h>
+                                      #include <yocs_msgs/Wall.h>
 
 #include <yocs_math_toolkit/geometry.hpp>
+#include <world_canvas_client_cpp/unique_id.h>
 
 #include "editor_panel.hpp"
 
@@ -72,6 +72,7 @@ RVizPluginEditor::RVizPluginEditor(QWidget* parent)
   connect( ui_->newAnnButton, SIGNAL( clicked() ), this, SLOT( newButtonClicked() ));
   connect( ui_->updateButton, SIGNAL( clicked() ), this, SLOT( updButtonClicked() ));
   connect( ui_->editMsgButton, SIGNAL( clicked() ), this, SLOT( msgButtonClicked() ));
+  connect( ui_->saveAnnButton, SIGNAL( clicked() ), this, SLOT( saveButtonClicked() ));
 
   // Manually build the shape combo so I can get custom values according to Annotation msg
   ui_->shapeComboBox->addItem("CUBE", visualization_msgs::Marker::CUBE);
@@ -96,6 +97,7 @@ void RVizPluginEditor::newButtonClicked()
 
   ui_->updateButton->setEnabled(true);
   ui_->editMsgButton->setEnabled(true);
+  ui_->saveAnnButton->setEnabled(false);
 }
 
 void RVizPluginEditor::updButtonClicked()
@@ -117,7 +119,12 @@ void RVizPluginEditor::msgButtonClicked()
 
   ext_process_->start(command_line);//, parameters);
 
-  ann_data_sub_ = nh_.subscribe("/kk", 10, &RVizPluginEditor::annDataCb, this, th_);
+  ann_data_sub_ = nh_.subscribe("/kkk", 10, &RVizPluginEditor::annDataCb, this, th_);
+}
+
+void RVizPluginEditor::saveButtonClicked()
+{
+  ROS_DEBUG("Save annotation");
 }
 
 void RVizPluginEditor::annDataCb(const ros::MessageEvent<topic_tools::ShapeShifter>& msg_event)
@@ -133,15 +140,46 @@ void RVizPluginEditor::annDataCb(const ros::MessageEvent<topic_tools::ShapeShift
   current_annot_->data_id = current_data_->id;
   current_data_->type = msg->getDataType();
 
-  current_data_->data.resize(500);//msg->size());  joder!!!!   4 bytes????
+  current_data_->data.resize(msg->size());
   ROS_DEBUG("1");
   ros::serialization::OStream stream((uint8_t*)&current_data_->data[0], current_data_->data.size());
 /////  msg->write(*(new ros::serialization::OStream((uint8_t*)&current_data_->data[0], current_data_->data.size())));
 
   ROS_DEBUG("2");
   msg->write(stream);
-  ROS_DEBUG("%d %d %d %d %d %d %d %d",current_data_->data[0], current_data_->data[1], current_data_->data[2],current_data_->data[3],current_data_->data[4],current_data_->data[5],current_data_->data[6],current_data_->data[7]);
 
+  // The new annotation is now complete, so we can save it
+  ui_->saveAnnButton->setEnabled(true);
+
+    for (int i = 0; i < current_data_->data.size(); ++i) {
+      printf("%d  ", current_data_->data[i]);
+
+    }
+
+    yocs_msgs::Wall object;
+    uint32_t serial_size = current_data_->data.size();
+    boost::shared_array<uint8_t> buffer(new uint8_t[serial_size]);
+    memcpy(buffer.get(), &current_data_->data[0], serial_size);
+    ros::SerializedMessage sm(buffer, serial_size);
+    sm.type_info = &typeid(object);
+    sm.message_start;// += 4;
+    try
+    {
+//      ROS_DEBUG("Deserialize object %x%x%x%x-%x%x-%x%x-%x%x-%x%x%x%x%x%x of type %s",
+//               current_data_->id.uuid[0], current_data_->id.uuid[1], current_data_->id.uuid[2], current_data_->id.uuid[3],
+//               current_data_->id.uuid[4], current_data_->id.uuid[5], current_data_->id.uuid[6], current_data_->id.uuid[7],
+//               current_data_->id.uuid[8], current_data_->id.uuid[9], current_data_->id.uuid[10], current_data_->id.uuid[11],
+//               current_data_->id.uuid[12], current_data_->id.uuid[13], current_data_->id.uuid[14], current_data_->id.uuid[15],
+//               type.c_str());
+      ros::serialization::deserializeMessage(sm, object);
+      marker_pub_ = nh_.advertise <yocs_msgs::Wall> ("funciona", 1, true);
+      marker_pub_.publish(object);
+//      count++;
+    }
+    catch (ros::serialization::StreamOverrunException& e)
+    {
+      ROS_ERROR("Deserialization failed on object: %s", e.what());
+    }
 }
 
 void RVizPluginEditor::widgets2annot(  world_canvas_msgs::Annotation::Ptr annot)

@@ -11,6 +11,7 @@
 #include <QTreeWidgetItem>
 
 #include <yocs_math_toolkit/common.hpp>
+#include <world_canvas_client_cpp/unique_id.h>
 
 #include "annotations.hpp"
 
@@ -100,4 +101,38 @@ void AnnotationsList::updateWidget()
 
     treeWidget_->addTopLevelItem(item);
   }
+}
+
+bool AnnotationsList::add(const world_canvas_msgs::Annotation& annotation,
+                          const world_canvas_msgs::AnnotationData& annot_data)
+{
+  if (annotation.data_id.uuid != annot_data.id.uuid)
+  {
+    ROS_ERROR("Incoherent annotation and data uuids '%s' != '%s'",
+              unique_id::toHexString(annotation.id).c_str(), unique_id::toHexString(annot_data.id).c_str());
+    return false;
+  }
+
+  for (unsigned int i = 0; i < this->annotations.size(); i++)
+  {
+    if (this->annotations[i].id.uuid == annotation.id.uuid)
+    {
+      ROS_ERROR("Duplicated annotation with uuid '%s'", unique_id::toHexString(annotation.id).c_str());
+      return false;
+    }
+  }
+
+  for (unsigned int i = 0; i < this->annots_data.size(); i++)
+  {
+    if (this->annots_data[i].id.uuid == annot_data.id.uuid)
+    {
+      ROS_ERROR("Duplicated annotation data with uuid '%s'", unique_id::toHexString(annot_data.id).c_str());
+      return false;
+    }
+  }
+
+  this->annotations.push_back(annotation);
+  this->annots_data.push_back(annot_data);
+
+  return true;
 }

@@ -28,6 +28,11 @@
   <run_depend>world_canvas_client_cpp</run_depend>
   <run_depend>yocs_math_toolkit</run_depend>
 
+
+
+  <build_depend>yocs_msgs</build_depend>
+  <run_depend>yocs_msgs</run_depend>
+
   <export>
       <rosdoc config="${prefix}/rosdoc.yaml"/>
       <rviz plugin="${prefix}/plugin_description.xml"/>

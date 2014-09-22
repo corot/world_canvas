@@ -17,6 +17,8 @@ class AnnotationsList : public AnnotationCollection
 public:
   AnnotationsList(const std::string& world, QTreeWidget* treeWidget);
 
+  bool add(const world_canvas_msgs::Annotation& annotation,
+           const world_canvas_msgs::AnnotationData& annot_data);
 private:
   QTreeWidget* treeWidget_;
   // Prepare the annotation collection
