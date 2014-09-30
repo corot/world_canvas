@@ -32,12 +32,14 @@
 #include <tf/tf.h>
 
 #include <QProcess>
+#include <QMessageBox>
+#include <QColorDialog>
 
-#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
                                       #include <yocs_msgs/Wall.h>
 
 #include <yocs_math_toolkit/geometry.hpp>
-#include <world_canvas_client_cpp/unique_id.h>
+#include <world_canvas_client_cpp/unique_id.hpp>
 
 #include "editor_panel.hpp"
 
@@ -45,7 +47,7 @@
 
 #define WORLD_NAME_TODO "Maze world"
 
-namespace world_canvas
+namespace wcf
 {
 
 // BEGIN_TUTORIAL
@@ -73,31 +75,52 @@ RVizPluginEditor::RVizPluginEditor(QWidget* parent)
   connect( ui_->updateButton, SIGNAL( clicked() ), this, SLOT( updButtonClicked() ));
   connect( ui_->editMsgButton, SIGNAL( clicked() ), this, SLOT( msgButtonClicked() ));
   connect( ui_->saveAnnButton, SIGNAL( clicked() ), this, SLOT( saveButtonClicked() ));
+  connect( ui_->pickColorButton, SIGNAL( clicked() ), this, SLOT( pickColorClicked() ));
+
+  // connect other signals to slots
+  connect( ui_->annsTreeWidget, SIGNAL( itemDoubleClicked(QTreeWidgetItem *, int)),
+           this, SLOT( annotSelected(QTreeWidgetItem *, int) ));
 
   // Manually build the shape combo so I can get custom values according to Annotation msg
   ui_->shapeComboBox->addItem("CUBE", visualization_msgs::Marker::CUBE);
   ui_->shapeComboBox->addItem("SPHERE", visualization_msgs::Marker::SPHERE);
   ui_->shapeComboBox->addItem("CYLINDER", visualization_msgs::Marker::CYLINDER);
   ui_->shapeComboBox->addItem("TEXT", visualization_msgs::Marker::TEXT_VIEW_FACING);
+
+//  // Other tweaks to the UI
+//  ui_->pickColorButton->setAutoFillBackground(true);
+//  ui_->pickColorButton->setFlat(true);
+
+  // Advertise a topic to publish a visual marker for the currently edited annotation
+  ///marker_pub_ = nh_.advertise <visualization_msgs::MarkerArray> ("current_annotation", 1, true);
 }
 
 void RVizPluginEditor::newButtonClicked()
 {
   ROS_DEBUG("New annotation");
 
+  // Confirm that user want to discard current changes (if any)
+  if (discardCurrentChanges() == false)
+    return;
+
   current_annot_.reset(new world_canvas_msgs::Annotation);
   current_annot_->world = WORLD_NAME_TODO;
-  current_annot_->id = unique_id::toMsg(unique_id::fromRandom());
+  current_annot_->id = uuid::toMsg(uuid::fromRandom());
   current_annot_->pose.header.frame_id = "/map";  // TODO
   current_annot_->pose.pose.pose.orientation.w = 1.0;  // Avoid non-normalized quaternions
+  current_annot_->shape = visualization_msgs::Marker::TEXT_VIEW_FACING; // reasonable default
+  current_annot_->color.a = 0.5;  // Avoid a rather confusing invisible shape
 
   annot2widgets(current_annot_);
-  publishMarker();
-  //annotations_>
+
+  annotations_->publishMarker("current_annotation", -1, *current_annot_);
 
   ui_->updateButton->setEnabled(true);
   ui_->editMsgButton->setEnabled(true);
   ui_->saveAnnButton->setEnabled(false);
+  ui_->pickColorButton->setEnabled(true);
+
+  unsaved_changes_ = false;
 }
 
 void RVizPluginEditor::updButtonClicked()
@@ -105,7 +128,10 @@ void RVizPluginEditor::updButtonClicked()
   ROS_DEBUG("Update annotation");
 
   widgets2annot(current_annot_);
-  publishMarker();
+
+  annotations_->publishMarker("current_annotation", -1, *current_annot_);
+
+  unsaved_changes_ = true;
 }
 
 void RVizPluginEditor::msgButtonClicked()
@@ -122,11 +148,6 @@ void RVizPluginEditor::msgButtonClicked()
   ann_data_sub_ = nh_.subscribe("/kkk", 10, &RVizPluginEditor::annDataCb, this, th_);
 }
 
-void RVizPluginEditor::saveButtonClicked()
-{
-  ROS_DEBUG("Save annotation");
-}
-
 void RVizPluginEditor::annDataCb(const ros::MessageEvent<topic_tools::ShapeShifter>& msg_event)
 {
   boost::shared_ptr<topic_tools::ShapeShifter const> const &msg = msg_event.getConstMessage();
@@ -136,20 +157,23 @@ void RVizPluginEditor::annDataCb(const ros::MessageEvent<topic_tools::ShapeShift
   //ROS_DEBUG("%s", msg->getMessageDefinition().c_str());
 
   current_data_.reset(new world_canvas_msgs::AnnotationData);
-  current_data_->id = unique_id::toMsg(unique_id::fromRandom());
-  current_annot_->data_id = current_data_->id;
+  current_data_->id = uuid::toMsg(uuid::fromRandom());
   current_data_->type = msg->getDataType();
-
   current_data_->data.resize(msg->size());
-  ROS_DEBUG("1");
   ros::serialization::OStream stream((uint8_t*)&current_data_->data[0], current_data_->data.size());
-/////  msg->write(*(new ros::serialization::OStream((uint8_t*)&current_data_->data[0], current_data_->data.size())));
-
-  ROS_DEBUG("2");
   msg->write(stream);
 
-  // The new annotation is now complete, so we can save it
+  current_annot_->data_id = current_data_->id;
+  current_annot_->type = current_data_->type;
+
+  // The new annotation have type and data, so it's now complete; we can save it!
+  ui_->typeLineEdit->setText(current_data_->type.c_str());
   ui_->saveAnnButton->setEnabled(true);
+
+  unsaved_changes_ = true;
+
+
+
 
     for (int i = 0; i < current_data_->data.size(); ++i) {
       printf("%d  ", current_data_->data[i]);
@@ -165,12 +189,8 @@ void RVizPluginEditor::annDataCb(const ros::MessageEvent<topic_tools::ShapeShift
     sm.message_start;// += 4;
     try
     {
-//      ROS_DEBUG("Deserialize object %x%x%x%x-%x%x-%x%x-%x%x-%x%x%x%x%x%x of type %s",
-//               current_data_->id.uuid[0], current_data_->id.uuid[1], current_data_->id.uuid[2], current_data_->id.uuid[3],
-//               current_data_->id.uuid[4], current_data_->id.uuid[5], current_data_->id.uuid[6], current_data_->id.uuid[7],
-//               current_data_->id.uuid[8], current_data_->id.uuid[9], current_data_->id.uuid[10], current_data_->id.uuid[11],
-//               current_data_->id.uuid[12], current_data_->id.uuid[13], current_data_->id.uuid[14], current_data_->id.uuid[15],
-//               type.c_str());
+      ROS_DEBUG("Deserializing object '%s' of type '%s'",
+                uuid::toHexString(current_data_->id).c_str(), current_data_->type.c_str());
       ros::serialization::deserializeMessage(sm, object);
       marker_pub_ = nh_.advertise <yocs_msgs::Wall> ("funciona", 1, true);
       marker_pub_.publish(object);
@@ -182,16 +202,99 @@ void RVizPluginEditor::annDataCb(const ros::MessageEvent<topic_tools::ShapeShift
     }
 }
 
-void RVizPluginEditor::widgets2annot(  world_canvas_msgs::Annotation::Ptr annot)
+void RVizPluginEditor::saveButtonClicked()
+{
+  ROS_DEBUG("Save annotation");
+
+  unsaved_changes_ = false;
+
+  if (!current_annot_ || ! current_data_)
+  {
+    ROS_ERROR("Missing current annotation [data]: %d, %d", current_annot_?true:false, current_data_?true:false);
+    assert(current_annot_);
+    assert(current_data_);
+    return;
+  }
+  annotations_->del(current_annot_->id);
+  annotations_->add(*current_annot_, *current_data_);
+}
+
+
+void RVizPluginEditor::annotSelected(QTreeWidgetItem *item, int column)
+{
+  int sel_index = ui_->annsTreeWidget->indexOfTopLevelItem(item);
+  ROS_DEBUG("Annotation %d selected", sel_index);
+
+  // Confirm that user want to discard current changes (if any)
+  if (discardCurrentChanges() == false)
+    return;
+
+  unsaved_changes_ = false;
+
+  current_annot_.reset(new world_canvas_msgs::Annotation);
+  *current_annot_ = annotations_->at(sel_index);
+  current_data_.reset(new world_canvas_msgs::AnnotationData);
+  *current_data_ = annotations_->getData(*current_annot_);
+
+  annot2widgets(current_annot_);
+
+  ui_->updateButton->setEnabled(true);
+  ui_->editMsgButton->setEnabled(true);
+  ui_->saveAnnButton->setEnabled(true);
+  ui_->pickColorButton->setEnabled(true);
+}
+
+void RVizPluginEditor::pickColorClicked()
+{
+  if (! current_annot_)
+  {
+    // This should not happen, as the pick color button should be disabled!
+    ROS_ERROR("Trying to pick a color while we are not editing an annotation");
+    return;
+  }
+
+//  QColor current = QColor::fromRgbF(current_annot_->color.r,
+//                                    current_annot_->color.g,
+//                                    current_annot_->color.b,
+//                                    current_annot_->color.a);
+
+  current_color_ = QColorDialog::getColor(current_color_, this, "Pick annotation color",
+                                          QColorDialog::ShowAlphaChannel);
+  ui_->colorLabel->setStyleSheet(QString("background-color: %1").arg(current_color_.name()));
+//  current_annot_->color.r = newColor.redF();
+//  current_annot_->color.g = newColor.greenF();
+//  current_annot_->color.b = newColor.blueF();
+//  current_annot_->color.a = newColor.alphaF();
+
+// TODO: whould be nice to show the current color somewhere in the UI
+//  QColor invColor = QColor::fromRgbF(1.0 - current_annot_->color.r,
+//                                     1.0 - current_annot_->color.g,
+//                                     1.0 - current_annot_->color.b,
+//                                     1.0);
+//
+//  QString qss = QString("background-color: %1").arg(newColor.name());
+//  ROS_DEBUG("%s  %f  %f  %f  %f", qss.toStdString().c_str(),
+//            newColor.redF(),
+//            newColor.greenF(),
+//            newColor.blueF(),
+//            newColor.alphaF());
+//  ui_->colorLabel->setStyleSheet(qss);
+//  ui_->pickColorButton->setStyleSheet(qss);
+//
+//  annotations_->publishMarker("current_annotation", -1, *current_annot_);
+
+}
+
+void RVizPluginEditor::widgets2annot(world_canvas_msgs::Annotation::Ptr annot)
 {
   annot->name = ui_->nameLineEdit->text().toStdString();
   annot->type = ui_->typeLineEdit->text().toStdString();
 
   annot->shape = ui_->shapeComboBox->itemData(ui_->shapeComboBox->currentIndex()).toInt();
-  annot->color.r = 1.0;
-  annot->color.g = 1.0;
-  annot->color.b = 1.0;
-  annot->color.a = 0.8;
+  annot->color.r = current_color_.redF();
+  annot->color.g = current_color_.greenF();
+  annot->color.b = current_color_.blueF();
+  annot->color.a = current_color_.alphaF();
   annot->size.x = ui_->lDoubleSpinBox->value();
   annot->size.y = ui_->wDoubleSpinBox->value();
   annot->size.z = ui_->hDoubleSpinBox->value();
@@ -204,28 +307,66 @@ void RVizPluginEditor::widgets2annot(  world_canvas_msgs::Annotation::Ptr annot)
                                ui_->zDoubleSpinBox->value()));
   tf::poseTFToMsg(tf, annot->pose.pose.pose);
 
-//  annot->keywords
-//  annot->relationships
+  annot->keywords.clear();
+  QStringList list = ui_->keywordsTextEdit->toPlainText().split("\n", QString::SkipEmptyParts);
+  int dup = list.removeDuplicates();
+  if (dup > 0)
+  {
+    ROS_WARN("Discarding %d duplicated keywords", dup);
+  }
+  for (int i = 0; i < list.count(); ++i)
+  {
+    annot->keywords.push_back(list[i].toStdString());
+  }
 
+  annot->relationships.clear();
+  list = ui_->relatedsTextEdit->toPlainText().split("\n", QString::SkipEmptyParts);
+  dup = list.removeDuplicates();
+  if (dup > 0)
+  {
+    ROS_WARN("Discarding %d duplicated relationships", dup);
+  }
+  for (int i = 0; i < list.count(); ++i)
+  {
+    // Annotations store relationships as uuid, but the user only works with the annotation's name
+    std::vector<world_canvas_msgs::Annotation> anns = annotations_->getAnnotations(list[i].toStdString());
+
+    ROS_DEBUG("%lu",anns.size());
+    if (anns.size() == 0)
+    {
+      ROS_WARN("No relationship fetched for name '%s'", list[i].toStdString().c_str());
+      continue;
+      // TODO show dialog or other info to the user
+    }
+
+    for (int j = 0; j < anns.size(); ++j)
+    {
+      ROS_DEBUG("Add relationship '%s'/'%s' fetched for name '%s'",
+                anns[j].name.c_str(), uuid::toHexString(anns[j].id).c_str(), list[i].toStdString().c_str());
+      annot->relationships.push_back(anns[j].id);
+    }
+  }
 
   Q_EMIT configChanged();
 }
 
-void RVizPluginEditor::annot2widgets( world_canvas_msgs::Annotation::Ptr annot)
+void RVizPluginEditor::annot2widgets(world_canvas_msgs::Annotation::Ptr annot)
 {
   ui_->nameLineEdit->setText(annot->name.c_str());
   ui_->typeLineEdit->setText(annot->type.c_str());
 
   int index = ui_->shapeComboBox->findData(annot->shape);
-  if ( index != -1 )  // -1 for not found
+  if (index != -1)  // -1 for not found
     ui_->shapeComboBox->setCurrentIndex(index);
   else
     ui_->shapeComboBox->setCurrentIndex(visualization_msgs::Marker::TEXT_VIEW_FACING);
 
-  annot->color.r;
-  annot->color.g;
-  annot->color.b;
-  annot->color.a;
+  current_color_.setRedF(annot->color.r);
+  current_color_.setGreenF(annot->color.g);
+  current_color_.setBlueF(annot->color.b);
+  current_color_.setAlphaF(annot->color.a);
+  ui_->colorLabel->setStyleSheet(QString("background-color: %1").arg(current_color_.name()));
+
   ui_->lDoubleSpinBox->setValue(annot->size.x);
   ui_->wDoubleSpinBox->setValue(annot->size.y);
   ui_->hDoubleSpinBox->setValue(annot->size.z);
@@ -236,48 +377,57 @@ void RVizPluginEditor::annot2widgets( world_canvas_msgs::Annotation::Ptr annot)
   ui_->rollDoubleSpinBox->setValue(mtk::roll(annot->pose.pose.pose));
   ui_->pitchDoubleSpinBox->setValue(mtk::pitch(annot->pose.pose.pose));
   ui_->yawDoubleSpinBox->setValue(tf::getYaw(annot->pose.pose.pose.orientation));  // TODO add yaw() to mtk if I change something else there
-  // TODO  // TODO  // TODO  annot->pose.header.frame_id = "/map";
-}
-//  // Only take action if the name has changed.
-//  if( new_topic != output_topic_ )
-//  {
-//    output_topic_ = new_topic;
-//    // If the topic is the empty string, don't publish anything.
-//    if( output_topic_ == "" )
-//    {
-//      velocity_publisher_.shutdown();
-//    }
-//    else
-//    {
-//      // The old ``velocity_publisher_`` is destroyed by this assignment,
-//      // and thus the old topic advertisement is removed.  The call to
-//      // nh_advertise() says we want to publish data on the new topic
-//      // name.
-//      velocity_publisher_ = nh_.advertise<geometry_msgs::Twist>( output_topic_.toStdString(), 1 );
-//    }
-//    // rviz::Panel defines the configChanged() signal.  Emitting it
-//    // tells RViz that something in this panel has changed that will
-//    // affect a saved config file.  Ultimately this signal can cause
-//    // QWidget::setWindowModified(true) to be called on the top-level
-//    // rviz::VisualizationFrame, which causes a little asterisk ("*")
-//    // to show in the window's title bar indicating unsaved changes.
-//    Q_EMIT configChanged();
-//  }
 
+  // TODO  // TODO  // TODO  annot->pose.header.frame_id = "/map";
+
+  ui_->keywordsTextEdit->clear();
+  for (int i = 0; i < annot->keywords.size(); ++i)
+  {
+    ui_->keywordsTextEdit->append(annot->keywords[i].c_str());
+  }
+
+  ui_->relatedsTextEdit->clear();
+  for (int i = 0; i < annot->relationships.size(); ++i)
+  {
+    try
+    {
+      // Annotations store relationships as uuid, but the user only works with the annotation's name
+      std::string relatedAnn = annotations_->getAnnotation(annot->relationships[i]).name;
+      ui_->relatedsTextEdit->append(relatedAnn.c_str());
+    }
+    catch (ros::Exception& e)
+    {
+      ROS_WARN("Discarding relationship: %s", e.what());
+    }
+  }
+}
+
+bool RVizPluginEditor::discardCurrentChanges()
+{
+  if (! current_annot_ || ! unsaved_changes_) // no current annotation or already saved
+    return true;
+
+  int ret = QMessageBox::warning(this, tr("Annotations Editor"),
+                                 tr("Current annotation not saved\n" \
+                                    "Do you want to discard changes?"),
+                                 QMessageBox::Yes | QMessageBox::Cancel,
+                                 QMessageBox::Cancel);
+  return (ret == QMessageBox::Yes);
+}
 
 // Save all configuration data from this panel to the given
 // Config object.  It is important here that you call save()
 // on the parent class so the class id and panel name get saved.
-void RVizPluginEditor::save( rviz::Config config ) const
+void RVizPluginEditor::save(rviz::Config config) const
 {
-  rviz::Panel::save( config );
+  rviz::Panel::save(config);
 //  config.mapSetValue( "Topic", output_topic_ );
 }
 
 // Load all configuration data for this panel from the given Config object.
-void RVizPluginEditor::load( const rviz::Config& config )
+void RVizPluginEditor::load(const rviz::Config& config)
 {
-  rviz::Panel::load( config );
+  rviz::Panel::load(config);
 //  QString topic;
 //  if( config.mapGetString( "Topic", &topic ))
 //  {
@@ -286,28 +436,9 @@ void RVizPluginEditor::load( const rviz::Config& config )
 //  }
 }
 
-bool RVizPluginEditor::publishMarker()
-{
-  // Advertise a topic for retrieved annotations' visualization markers
-  marker_pub_ = nh_.advertise <visualization_msgs::Marker> ("current_annotation", 1, true);
-
-  visualization_msgs::Marker marker;
-  marker.id     = 666;
-  marker.header = current_annot_->pose.header;
-  marker.type   = current_annot_->shape;
-  marker.ns     = current_annot_->type;
-  marker.action = visualization_msgs::Marker::ADD;
-  marker.pose   = current_annot_->pose.pose.pose;
-  marker.scale  = current_annot_->size;
-  marker.color  = current_annot_->color;
-
-  marker_pub_.publish(marker);
-  return true;
-}
-
-} // end namespace world_canvas
+} // end namespace wcf
 
 
 // Tell pluginlib about this class
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(world_canvas::RVizPluginEditor, rviz::Panel )
+PLUGINLIB_EXPORT_CLASS(wcf::RVizPluginEditor, rviz::Panel )

@@ -42,9 +42,11 @@ namespace Ui
 class EditorPanel;
 }
 
+class QColor;
 class QProcess;
+class QTreeWidgetItem;
 
-namespace world_canvas
+namespace wcf
 {
 // Here we declare our new subclass of rviz::Panel.  Every panel which
 // can be added via the Panels/Add_New_Panel menu is a subclass of
@@ -76,28 +78,15 @@ public:
 
   // Next come a couple of public Qt slots.
 public Q_SLOTS:
-  // The control area, DriveWidget, sends its output to a Qt signal
-  // for ease of re-use, so here we declare a Qt slot to receive it.
-//  void setVel( float linear_velocity_, float angular_velocity_ );
   void newButtonClicked();
   void updButtonClicked();
   void msgButtonClicked();
   void saveButtonClicked();
-
-  void annot2widgets( world_canvas_msgs::Annotation::Ptr annot);
-  void widgets2annot( world_canvas_msgs::Annotation::Ptr annot);
-  bool publishMarker();
+  void pickColorClicked();
+  void annotSelected(QTreeWidgetItem *item, int column);
 
   // Here we declare some internal slots.
 protected Q_SLOTS:
-  // sendvel() publishes the current velocity values to a ROS
-  // topic.  Internally this is connected to a timer which calls it 10
-  // times per second.
-//  void sendVel();
-
-  // updateTopic() reads the topic name from the QLineEdit and calls
-  // setTopic() with the result.
-  void updateTopic();
 
   // Then we finish up with protected member variables.
 protected:
@@ -109,14 +98,23 @@ protected:
   ros::Subscriber ann_data_sub_;
   ros::TransportHints th_;
 
+  bool unsaved_changes_;
+
   boost::shared_ptr<QProcess>        ext_process_;
   boost::shared_ptr<AnnotationsList> annotations_;
+
+  QColor          current_color_;
+////  boost::shared_ptr<QColor>          current_color_;
   world_canvas_msgs::Annotation::Ptr current_annot_;
   world_canvas_msgs::AnnotationData::Ptr current_data_;
 
   void annDataCb(const ros::MessageEvent<topic_tools::ShapeShifter>& msg_event);
+
+  bool discardCurrentChanges();
+  void annot2widgets(world_canvas_msgs::Annotation::Ptr annot);
+  void widgets2annot(world_canvas_msgs::Annotation::Ptr annot);
 };
 
-} // end namespace world_canvas
+} // end namespace wcf
 
 #endif // EDITOR_PANEL_H

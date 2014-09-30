@@ -11,10 +11,12 @@
 #include <QTreeWidgetItem>
 
 #include <yocs_math_toolkit/common.hpp>
-#include <world_canvas_client_cpp/unique_id.h>
+#include <world_canvas_client_cpp/unique_id.hpp>
 
 #include "annotations.hpp"
 
+namespace wcf
+{
 
 AnnotationsList::AnnotationsList(const std::string& world, QTreeWidget* treeWidget)
                : AnnotationCollection(world), treeWidget_(treeWidget)
@@ -53,7 +55,7 @@ AnnotationsList::AnnotationsList(const std::string& world, QTreeWidget* treeWidg
   this->updateWidget();
   ROS_INFO("Annotation collection ready!");
 
-  // Publish annotations' visual markers on client side
+  // Publish annotations' visual markers
   this->publishMarkers("annotation_markers");
 
   // Request server to publish the annotations
@@ -109,7 +111,7 @@ bool AnnotationsList::add(const world_canvas_msgs::Annotation& annotation,
   if (annotation.data_id.uuid != annot_data.id.uuid)
   {
     ROS_ERROR("Incoherent annotation and data uuids '%s' != '%s'",
-              unique_id::toHexString(annotation.id).c_str(), unique_id::toHexString(annot_data.id).c_str());
+              uuid::toHexString(annotation.id).c_str(), uuid::toHexString(annot_data.id).c_str());
     return false;
   }
 
@@ -117,7 +119,7 @@ bool AnnotationsList::add(const world_canvas_msgs::Annotation& annotation,
   {
     if (this->annotations[i].id.uuid == annotation.id.uuid)
     {
-      ROS_ERROR("Duplicated annotation with uuid '%s'", unique_id::toHexString(annotation.id).c_str());
+      ROS_ERROR("Duplicated annotation with uuid '%s'", uuid::toHexString(annotation.id).c_str());
       return false;
     }
   }
@@ -126,7 +128,7 @@ bool AnnotationsList::add(const world_canvas_msgs::Annotation& annotation,
   {
     if (this->annots_data[i].id.uuid == annot_data.id.uuid)
     {
-      ROS_ERROR("Duplicated annotation data with uuid '%s'", unique_id::toHexString(annot_data.id).c_str());
+      ROS_ERROR("Duplicated annotation data with uuid '%s'", uuid::toHexString(annot_data.id).c_str());
       return false;
     }
   }
@@ -134,5 +136,71 @@ bool AnnotationsList::add(const world_canvas_msgs::Annotation& annotation,
   this->annotations.push_back(annotation);
   this->annots_data.push_back(annot_data);
 
+  // Re-publish annotations' visual markers to reflect the incorporation
+  this->publishMarkers("annotation_markers");
+
+  // Reflect changes on the tree widget
+  this->updateWidget();
+
   return true;
 }
+
+bool AnnotationsList::del(const uuid_msgs::UniqueID& id)
+{
+  for (unsigned int i = 0; i < this->annotations.size(); i++)
+  {
+    if (this->annotations[i].id.uuid == id.uuid)
+    {
+      ROS_DEBUG("Annotation '%s' found", uuid::toHexString(id).c_str());
+
+      for (unsigned int j = 0; j < this->annots_data.size(); j++)
+      {
+        if (this->annots_data[j].id.uuid == this->annotations[i].data_id.uuid)
+        {
+          this->annotations.erase(this->annotations.begin() + i);
+          this->annots_data.erase(this->annots_data.begin() + j);
+          ROS_DEBUG("Removed annotation with uuid '%s'", uuid::toHexString(this->annotations[i].id).c_str());
+          ROS_DEBUG("Removed annot. data with uuid '%s'", uuid::toHexString(this->annots_data[j].id).c_str());
+
+          // Re-pPublish annotations' visual markers to reflect the incorporation
+          this->publishMarkers("annotation_markers");
+
+          // Reflect changes on the tree widget
+          this->updateWidget();
+
+          return true;
+        }
+      }
+
+      ROS_ERROR("No data found for annotation '%s' (data uuid is '%s')", uuid::toHexString(id).c_str(),
+                uuid::toHexString(this->annotations[i].data_id).c_str());
+      return false;
+    }
+  }
+
+  ROS_WARN("Annotation '%s' not found", uuid::toHexString(id).c_str());
+  return false;
+}
+
+const world_canvas_msgs::Annotation& AnnotationsList::at(unsigned int index)
+{
+  if (index >= this->annotations.size())
+    throw ros::Exception("Annotation index out of bounds");
+
+  return this->annotations[index];
+}
+
+const world_canvas_msgs::AnnotationData& AnnotationsList::getData(const world_canvas_msgs::Annotation& ann)
+{
+  for (unsigned int i = 0; i < this->annots_data.size(); i++)
+  {
+    if (this->annots_data[i].id.uuid == ann.data_id.uuid)
+    {
+      return this->annots_data[i];
+    }
+  }
+
+  throw ros::Exception("Data uuid not found: " + uuid::toHexString(ann.data_id));
+}
+
+} // namespace wcf

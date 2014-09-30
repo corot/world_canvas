@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>799</width>
+    <width>641</width>
     <height>834</height>
    </rect>
   </property>
@@ -17,7 +17,7 @@
    <property name="geometry">
     <rect>
      <x>10</x>
-     <y>20</y>
+     <y>36</y>
      <width>557</width>
      <height>684</height>
     </rect>
@@ -143,7 +143,11 @@
             </widget>
            </item>
            <item>
-            <widget class="QLineEdit" name="typeLineEdit"/>
+            <widget class="QLineEdit" name="typeLineEdit">
+             <property name="readOnly">
+              <bool>true</bool>
+             </property>
+            </widget>
            </item>
           </layout>
          </item>
@@ -241,18 +245,37 @@
           </layout>
          </item>
          <item>
-          <layout class="QVBoxLayout" name="verticalLayout_9">
-           <item>
+          <layout class="QGridLayout" name="gridLayout_2">
+           <item row="1" column="0" colspan="2">
+            <widget class="QPushButton" name="pickColorButton">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="baseSize">
+              <size>
+               <width>0</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Change</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="0">
             <widget class="QLabel" name="label_17">
              <property name="text">
               <string>Color</string>
              </property>
             </widget>
            </item>
-           <item>
-            <widget class="QPushButton" name="colorPushButton">
+           <item row="0" column="1">
+            <widget class="QLabel" name="colorLabel">
+             <property name="frameShape">
+              <enum>QFrame::StyledPanel</enum>
+             </property>
              <property name="text">
-              <string>Change</string>
+              <string/>
              </property>
             </widget>
            </item>
@@ -479,7 +502,7 @@
             </widget>
            </item>
            <item>
-            <widget class="QTextEdit" name="textEdit"/>
+            <widget class="QTextEdit" name="keywordsTextEdit"/>
            </item>
           </layout>
          </item>
@@ -493,7 +516,7 @@
             </widget>
            </item>
            <item>
-            <widget class="QTextEdit" name="textEdit_2"/>
+            <widget class="QTextEdit" name="relatedsTextEdit"/>
            </item>
           </layout>
          </item>

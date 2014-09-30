@@ -1,6 +1,6 @@
 <library path="lib/libworld_canvas_editor">
   <class name="world_canvas/Annotations Editor"
-         type="world_canvas::RVizPluginEditor"
+         type="wcf::RVizPluginEditor"
          base_class_type="rviz::Panel">
     <description>
       World Canvas Framework Annotations Editor.
