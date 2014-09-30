@@ -13,6 +13,9 @@
 #include <yocs_math_toolkit/common.hpp>
 #include <world_canvas_client_cpp/unique_id.hpp>
 
+#include <world_canvas_msgs/SaveAnnotationsData.h>
+
+
 #include "annotations.hpp"
 
 namespace wcf
@@ -157,10 +160,10 @@ bool AnnotationsList::del(const uuid_msgs::UniqueID& id)
       {
         if (this->annots_data[j].id.uuid == this->annotations[i].data_id.uuid)
         {
+          ROS_DEBUG("Removed annotation with uuid '%s'  %u  %u", uuid::toHexString(this->annotations[i].id).c_str(),      i,j);
+          ROS_DEBUG("Removed annot. data with uuid '%s'", uuid::toHexString(this->annots_data[j].id).c_str());
           this->annotations.erase(this->annotations.begin() + i);
           this->annots_data.erase(this->annots_data.begin() + j);
-          ROS_DEBUG("Removed annotation with uuid '%s'", uuid::toHexString(this->annotations[i].id).c_str());
-          ROS_DEBUG("Removed annot. data with uuid '%s'", uuid::toHexString(this->annots_data[j].id).c_str());
 
           // Re-pPublish annotations' visual markers to reflect the incorporation
           this->publishMarkers("annotation_markers");
@@ -201,6 +204,90 @@ const world_canvas_msgs::AnnotationData& AnnotationsList::getData(const world_ca
   }
 
   throw ros::Exception("Data uuid not found: " + uuid::toHexString(ann.data_id));
+}
+
+bool AnnotationsList::save()
+{
+  ros::NodeHandle nh;
+  ros::ServiceClient client =
+      nh.serviceClient<world_canvas_msgs::SaveAnnotationsData>("save_annotations_data");
+  ROS_INFO("Waiting for save_annotations_data service...");
+  if (client.waitForExistence(ros::Duration(5.0)) == false)
+  {
+    ROS_ERROR("Service save_annotations_data not available after 5s");
+    return false;
+  }
+
+  // Request server to save current annotations list, with its data
+  ROS_INFO("Requesting server to save annotations");
+  world_canvas_msgs::SaveAnnotationsData srv;
+//  srv.request.annotations = this->annotations;
+//  srv.request.data        = this->annots_data;
+
+  // This brittle saving procedure requires parallelly ordered annotations and data vectors
+  // As this don't need to be the case, we must short them; but we need a better saving procedure (TODO)
+  for (unsigned int i = 0; i < this->annotations.size(); i++)
+  {
+    for (unsigned int j = 0; j < this->annots_data.size(); j++)
+    {
+      if (this->annots_data[j].id.uuid == this->annotations[i].data_id.uuid)
+      {
+        ROS_DEBUG("Add annotation for saving with uuid '%s'  %u  %u", uuid::toHexString(this->annotations[i].id).c_str(),      i,j);
+        ROS_DEBUG("Add annot. data for saving with uuid '%s'", uuid::toHexString(this->annots_data[j].id).c_str());
+        srv.request.annotations.push_back(this->annotations[i]);
+        srv.request.data.push_back(this->annots_data[j]);
+        break;
+      }
+    }
+  }
+
+  // Do at least a rudimentary check
+  if (! (this->annotations.size() == this->annots_data.size() == srv.request.annotations.size() == srv.request.data.size()))
+  {
+    ROS_ERROR("Incoherent annotation and data sizes: %lu != %lu != %lu != %lu",
+              this->annotations.size(), this->annots_data.size(), srv.request.annotations.size(), srv.request.data.size());
+  }
+
+  if (client.call(srv))
+  {
+    if (srv.response.result == true)
+    {
+      return true;
+    }
+    else
+    {
+      ROS_ERROR("Server reported an error: %s", srv.response.message.c_str());
+      return false;
+    }
+  }
+  else
+  {
+    ROS_ERROR("Failed to call save_annotations_data service");
+    return false;
+  }
+}
+
+bool AnnotationsList::check()
+{
+  if (this->annotations.size() != this->annots_data.size())
+  {
+    ROS_ERROR("Incoherent annotation and data sizes: %lu != %lu",
+              this->annotations.size(), this->annots_data.size());
+    return false;
+  }
+
+  for (unsigned int i = 0; i < this->annotations.size(); i++)
+  {
+    if (this->annotations[i].data_id.uuid != this->annots_data[i].id.uuid)
+    {
+      ROS_ERROR("Incoherent annotation and data uuids '%s' != '%s'",
+                uuid::toHexString(this->annotations[i].data_id).c_str(),
+                uuid::toHexString(this->annots_data[i].id).c_str());
+      return false;
+    }
+  }
+
+  return true;
 }
 
 } // namespace wcf

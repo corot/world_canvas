@@ -81,6 +81,7 @@ public Q_SLOTS:
   void newButtonClicked();
   void updButtonClicked();
   void msgButtonClicked();
+  void delButtonClicked();
   void saveButtonClicked();
   void pickColorClicked();
   void annotSelected(QTreeWidgetItem *item, int column);
@@ -98,13 +99,10 @@ protected:
   ros::Subscriber ann_data_sub_;
   ros::TransportHints th_;
 
-  bool unsaved_changes_;
-
   boost::shared_ptr<QProcess>        ext_process_;
   boost::shared_ptr<AnnotationsList> annotations_;
 
-  QColor          current_color_;
-////  boost::shared_ptr<QColor>          current_color_;
+  QColor                             current_color_;
   world_canvas_msgs::Annotation::Ptr current_annot_;
   world_canvas_msgs::AnnotationData::Ptr current_data_;
 
