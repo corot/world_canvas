@@ -28,7 +28,7 @@ def publish(anns, data, topic_name, topic_type, pub_as_list):
         # Objects
         type_class = roslib.message.get_message_class(d.type)
         if type_class is None:
-            rospy.logerr('Topic type %s definition not found' % topic_type)
+            rospy.logerr("Topic type %s definition not found" % topic_type)
             return False
         
         object = deserializeMsg(d.data, type_class)

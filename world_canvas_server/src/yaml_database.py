@@ -219,7 +219,7 @@ class YAMLDatabase:
                         # We need the annotation data class to deserialize the bytes array stored in database
                         data_class = roslib.message.get_message_class(annotations[0].type)
                         if data_class is None:
-                            rospy.logerr('Annotation type %s definition not found' % annotation.type)
+                            rospy.logerr("Annotation type %s definition not found" % annotation.type)
                             return False
 
                         data = deserializeMsg(d.data, data_class)
