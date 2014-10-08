@@ -245,11 +245,14 @@ class YAMLDatabase:
                     # we don't consider this an error
                     return self.serviceSuccess(response, "Database is empty!; nothing to export")
                 else:
-                    # default_flow_style = False writes lists with an element per-line, (with -),
-                    # what makes the output very long and not very readable. Method flowStyleLists
-                    # makes uuids and covariances list flow-styled, i.e. [x, y, z, ...]
+                    # I must use default_flow_style = False so the resulting YAML looks nice, but then
+                    # the bloody dumper writes lists with an element per-line, (with -), what makes the
+                    # output very long and not very readable. So method flowStyleLists makes uuids and
+                    # covariances list flow-styled, i.e. [x, y, z, ...], while flowStyleOccGrid to the
+                    # same for occupancy grids (maps), but can be easily modified for other big messages
                     dump = yaml.dump(entries, default_flow_style=False)
                     dump = self.flowStyleLists(dump)
+                    dump = self.flowStyleOccGrid(dump)
                     
                     # Add a decimal point to exponential formated floats; if not, get loaded as strings,
                     # due to a bug in pyyaml. See this ticket for details: http://pyyaml.org/ticket/359
@@ -295,7 +298,7 @@ class YAMLDatabase:
     def flowStyleLists(self, target):
         # Compose and compile regex to match uuids: lists of 16 integers
         regex = 'uuid: *\n'
-        for i in range(0,16):
+        for i in range(0, 16):
             regex += ' *- +(\d+)\n'
         comp_re = re.compile(regex)
         while True:
@@ -313,7 +316,7 @@ class YAMLDatabase:
 
         # Compose and compile regex to match covariances: lists of 36 floats, possibly on exponential notation
         regex = 'covariance: *\n'
-        for i in range(0,36):
+        for i in range(0, 36):
             regex += ' *- +([-+]?\d*\.?\d+|\d+[eE][-+]?\d+)\n'
         comp_re = re.compile(regex)
         while True:
@@ -330,3 +333,22 @@ class YAMLDatabase:
             target = comp_re.sub(flow_list, target, 1)
 
         return target
+    
+    def flowStyleOccGrid(self, target):
+        # Compose and compile regex to match 'data:' + a lists of 10 or more integers
+        # This should apply to other data chunks other than maps; can also replace the
+        # uuid matcher of method flowStyleLists, but I let it TODO
+        regex = 'data: *\n( *- +(\d+)\n){10,}'
+        comp_re = re.compile(regex)
+        while True:
+            data_match = comp_re.search(target)
+            if data_match is None:
+                break;
+            
+            data = target[data_match.start():data_match.end()]
+            flow_list = 'data: ['
+            for byte_match in re.finditer(' *- +(\d+)\n', data):
+                flow_list += byte_match.group(1) + ','
+            flow_list = flow_list[:-1] + ']\n'
+
+            target = comp_re.sub(flow_list, target, 1)
