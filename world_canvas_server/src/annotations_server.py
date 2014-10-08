@@ -436,8 +436,8 @@ class AnnotationsServer:
         return response
 
 if __name__ == "__main__":
-    if sys.argv[1] == 'true':
-        # Only arguments is a debug='true'/'false' flag
+    if len(sys.argv) > 1 and sys.argv[1] == 'true':
+        # Only (optional) argument is a debug='true'/'false' flag
         rospy.init_node('world_canvas_server', log_level=rospy.DEBUG)
     else:
         rospy.init_node('world_canvas_server')
