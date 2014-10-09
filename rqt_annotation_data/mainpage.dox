@@ -2,5 +2,7 @@
 \mainpage
 \htmlinclude manifest.html
 
-\b rqt_annotation_data provides a ROS plugin for publishing arbitrary messages with fixed or computed field values.
+\b World Canvas Framework Annotations Data Editor.
+   Auxiliary tool for the World Canvas Editor: allows creating a ROS message with the associated
+   data for one or more annotations. Code has been adapted from rqt_publisher plugin.
 */

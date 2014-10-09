@@ -44,38 +44,42 @@ import rospy
 
 from qt_gui_py_common.worker_thread import WorkerThread
 from rqt_py_common.extended_combo_box import ExtendedComboBox
-from .publisher_tree_widget import PublisherTreeWidget
+from .message_tree_widget import MessageTreeWidget
 
 
 # main class inherits from the ui window class
-class PublisherWidget(QWidget):
-    add_publisher = Signal(str, str, float, bool)
+class MsgEditorWidget(QWidget):
+    msg_type_changed = Signal(str)
     change_publisher = Signal(int, str, str, str, object)
-    publish_once = Signal(int)
-    remove_publisher = Signal(int)
-    clean_up_publishers = Signal()
+#     publish_once = Signal(int)
+#     remove_publisher = Signal(int)
+    clean  = Signal()
+    accept = Signal()
+    cancel = Signal()
 
     def __init__(self, parent=None):
-        super(PublisherWidget, self).__init__(parent)
+        super(MsgEditorWidget, self).__init__(parent)
         self._topic_dict = {}
         self._update_thread = WorkerThread(self._update_thread_run, self._update_finished)
 
         self._rospack = rospkg.RosPack()
-        ui_file = os.path.join(self._rospack.get_path('rqt_annotation_data'), 'resource', 'Publisher.ui')
-        loadUi(ui_file, self, {'ExtendedComboBox': ExtendedComboBox, 'PublisherTreeWidget': PublisherTreeWidget})
-        self.refresh_button.setIcon(QIcon.fromTheme('view-refresh'))
-        self.refresh_button.clicked.connect(self.refresh_combo_boxes)
-        self.add_publisher_button.setIcon(QIcon.fromTheme('add'))
-        self.remove_publisher_button.setIcon(QIcon.fromTheme('remove'))
-        self.clear_button.setIcon(QIcon.fromTheme('edit-clear'))
+        ui_file = os.path.join(self._rospack.get_path('rqt_annotation_data'), 'resource', 'MsgEditor.ui')
+        loadUi(ui_file, self, {'ExtendedComboBox': ExtendedComboBox, 'MessageTreeWidget': MessageTreeWidget})
+#         self.refresh_button.setIcon(QIcon.fromTheme('view-refresh'))
+#         self.refresh_button.clicked.connect(self.refresh_combo_boxes)
+#         self.add_publisher_button.setIcon(QIcon.fromTheme('add'))
+#         self.remove_publisher_button.setIcon(QIcon.fromTheme('remove'))
+#         self.clear_button.setIcon(QIcon.fromTheme('edit-clear'))
 
         self.refresh_combo_boxes()
 
-        self.publisher_tree_widget.model().item_value_changed.connect(self.change_publisher)
-        self.publisher_tree_widget.remove_publisher.connect(self.remove_publisher)
-        self.publisher_tree_widget.publish_once.connect(self.publish_once)
-        self.remove_publisher_button.clicked.connect(self.publisher_tree_widget.remove_selected_publishers)
-        self.clear_button.clicked.connect(self.clean_up_publishers)
+        self.message_tree_widget.model().item_value_changed.connect(self.change_publisher)
+#         self.message_tree_widget.remove_publisher.connect(self.remove_publisher)
+#         self.message_tree_widget.publish_once.connect(self.publish_once)
+
+#        self.accept_button.clicked.connect(self.message_tree_widget.remove_selected_publishers)
+#        self.cancel_button.clicked.connect(self.message_tree_widget.remove_selected_publishers)
+        self.clear_button.clicked.connect(self.clean)
 
     def shutdown_plugin(self):
         self._update_thread.kill()
@@ -83,15 +87,13 @@ class PublisherWidget(QWidget):
     @Slot()
     def refresh_combo_boxes(self):
         self._update_thread.kill()
-        self.type_combo_box.setEnabled(False)
-        self.topic_combo_box.setEnabled(False)
-        self.type_combo_box.setEditText('updating...')
-        self.topic_combo_box.setEditText('updating...')
+        self.msg_type_combo_box.setEnabled(False)
+        self.msg_type_combo_box.setEditText('updating...')
         self._update_thread.start()
 
     # this runs in a non-gui thread, so don't access widgets here directly
     def _update_thread_run(self):
-        # update type_combo_box
+        # update msg_type_combo_box
         message_type_names = []
         try:
             # this only works on fuerte and up
@@ -105,27 +107,35 @@ class PublisherWidget(QWidget):
                 if message_class is not None:
                     message_type_names.append(base_type_str)
 
-        self.type_combo_box.setItems.emit(sorted(message_type_names))
+        if hasattr(self, 'prev_type_name'):
+            del self.prev_type_name
+        message_type_names.append('') # null message type at first
+        self.msg_type_combo_box.setItems.emit(sorted(message_type_names))
+        #self.msg_type_combo_box.setEditable(False)
+        #self.msg_type_combo_box.currentIndexChanged('')
 
         # update topic_combo_box
         _, _, topic_types = rospy.get_master().getTopicTypes()
         self._topic_dict = dict(topic_types)
-        self.topic_combo_box.setItems.emit(sorted(self._topic_dict.keys()))
 
     @Slot()
     def _update_finished(self):
-        self.type_combo_box.setEnabled(True)
-        self.topic_combo_box.setEnabled(True)
+        self.msg_type_combo_box.setEnabled(True)
 
     @Slot(str)
-    def on_topic_combo_box_currentIndexChanged(self, topic_name):
-        if topic_name in self._topic_dict:
-            self.type_combo_box.setEditText(self._topic_dict[topic_name])
+    def on_msg_type_combo_box_currentIndexChanged(self, type_name):
+#         if hasattr(self, 'prev_type_name'):
+#             pass
+        self.msg_type_changed.emit(type_name)
+        self.prev_type_name = str(self.msg_type_combo_box.currentText())
+
+#         add_publisher.e
+#         if topic_name in self._topic_dict:
+#             self.msg_type_combo_box.setEditText(self._topic_dict[topic_name])
 
     @Slot()
-    def on_add_publisher_button_clicked(self):
-        topic_name = str(self.topic_combo_box.currentText())
-        type_name = str(self.type_combo_box.currentText())
-        rate = float(self.frequency_combo_box.currentText())
-        enabled = False
-        self.add_publisher.emit(topic_name, type_name, rate, enabled)
+    def on_accept_button_clicked(self):
+        self.accept.emit()
+
+    def on_cancel_button_clicked(self):
+        self.cancel.emit()
