@@ -61,11 +61,9 @@ class MsgEditor(Plugin):
         self._widget = MsgEditorWidget()
         self._widget.accept.connect(self.accept)
         self._widget.cancel.connect(self.cancel)
-        self._widget.clean.connect(self.clean_up_publishers)
+        self._widget.clean.connect(self.clean_up_message)
         self._widget.msg_type_changed.connect(self.msg_type_changed)
-        self._widget.change_publisher.connect(self.change_publisher)
-#         self._widget.publish_once.connect(self.publish_once)
-#         self._widget.remove_publisher.connect(self.remove_publisher)
+        self._widget.change_message.connect(self.change_message)
         if context.serial_number() > 1:
             self._widget.setWindowTitle(self._widget.windowTitle() + (' (%d)' % context.serial_number()))
 
@@ -77,24 +75,15 @@ class MsgEditor(Plugin):
         del self._eval_locals['__name__']
         del self._eval_locals['__doc__']
 
-#         self._timeout_mapper = QSignalMapper(self)
-#         self._timeout_mapper.mapped[int].connect(self.publish_once)
-
         # add our self to the main window
         context.add_widget(self._widget)
         
         self.annot_name = 'UNKNOWN'
         self.edit_data_srv = \
             rospy.Service('/__edit_annotation_data__', EditAnnotationsData, self.on_edit_data_srv)
-#         self.user_action_pub = rospy.Publisher('/_annotation_data_user_action_', std_msgs.msg.String,### latch=True,
-#                                                 queue_size=1)
-# 
-#         self.annotation_sub = rospy.Subscriber('/_annotation_data_annotation_', world_canvas_msgs.msg.Annotation,
-#                                                 self.on_annotation, queue_size=1)
-#         self.annot_data_sub = rospy.Subscriber('/_annotation_data_old_message_', world_canvas_msgs.msg.AnnotationData,
-#                                                 self.on_data_annot, queue_size=1)
 
     def on_edit_data_srv(self, request):
+        # Request from the annotations editor
         # TODO: somehow all should be blocked until we receive this request...
         
         self.annot_name = request.annotation.name
@@ -114,17 +103,14 @@ class MsgEditor(Plugin):
                 rospy.logerr(message)
                 raise Exception(message)
             
-            self.clean_up_publishers()
+            self.clean_up_message()
             self.message_info = {
                 'type_name': request.data.type,
                 'instance': old_value,
             }
-            self._add_publisher(self.message_info)
-            
-#             response.action = EditAnnotationsDataResponse.UPDATE
-#         else:
-#             response.action = EditAnnotationsDataResponse.UPDATE
+            self._set_message(self.message_info)
 
+        # We let now the user to do whatever he wants, until he presses accept or cancel
         while not hasattr(self, 'user_action'):
             rospy.sleep(0.5)
 
@@ -132,6 +118,8 @@ class MsgEditor(Plugin):
         response.action = self.user_action
 
         if response.action == EditAnnotationsDataResponse.UPDATE:
+            # User pressed accept and we have a message under edition;
+            # serialize it and send back to the main annotations editor
             self._fill_message_slots(self.message_info['instance'], self.message_info['topic_name'],
                                      self.message_info['expressions'], self.message_info['counter'])
             response.data.id = request.data.id  # keep same uuid
@@ -151,12 +139,16 @@ class MsgEditor(Plugin):
         if hasattr(self, 'message_info'):
             self.user_action = EditAnnotationsDataResponse.UPDATE
         else:
+            # User pressed accept buy we have not message under edition;
+            # if the user confirms, the current data will be discarded
             answer = QMessageBox.question(self._widget, 'Delete Existing Message', 
                     'No message under edition. Continue will delete any existing data\n'\
                     'Are you sure?', QMessageBox.Yes, QMessageBox.Cancel)
             if answer != QMessageBox.Yes:
                 return
             self.user_action = EditAnnotationsDataResponse.DELETE
+        
+        # Both on cancel and accept we let some margin for the service handler to complete
         rospy.sleep(0.5)
         self.shutdown_plugin()
         sys.exit(0)
@@ -193,20 +185,19 @@ class MsgEditor(Plugin):
                 self._widget.msg_type_combo_box.setEditText(self.message_info['type_name'])
                 return
         
-            self.clean_up_publishers()
+            self.clean_up_message()
 
         self.message_info = {
             'type_name': str(type_name),
             'instance': self._create_message_instance(str(type_name))
         }
-        self._add_publisher(self.message_info)
+        self._set_message(self.message_info)
 
-    def _add_publisher(self, message_info):
+    def _set_message(self, message_info):
         message_info['annot_name'] = self.annot_name
         message_info['topic_name'] = '/__TOPIC__'
-        message_info['publisher_id'] = 0
+        message_info['message_id'] = 0
         message_info['counter'] = 0
-#        message_info['enabled'] = message_info.get('enabled', False)
         message_info['expressions'] = message_info.get('expressions', {})
 
         if message_info['instance'] is None:
@@ -214,85 +205,23 @@ class MsgEditor(Plugin):
         message_info['publisher'] = \
             rospy.Publisher(message_info['topic_name'], type(message_info['instance']), queue_size=1)
 
-#         # create publisher and timer
-#         try:
-#             message_info['publisher'] = rospy.Publisher(message_info['topic_name'], type(message_info['instance']), latch=False, queue_size=100)
-#         except TypeError:
-#             message_info['publisher'] = rospy.Publisher(message_info['topic_name'], type(message_info['instance']), latch=False)
-#         message_info['timer'] = QTimer(self)
-
-        # add publisher info to _publishers dict and create signal mapping
-#         self._publishers[message_info['publisher_id']] = message_info
-#         self._timeout_mapper.setMapping(message_info['timer'], message_info['publisher_id'])
-#         message_info['timer'].timeout.connect(self._timeout_mapper.map)
-#         if message_info['enabled'] and message_info['rate'] > 0:
-#             message_info['timer'].start(int(1000.0 / message_info['rate']))
-
         self._widget.msg_type_combo_box.setEditText(self.message_info['type_name'])
-        self._widget.message_tree_widget.model().add_publisher(message_info)
+        self._widget.message_tree_widget.model().add_message(message_info)
 
     @Slot(int, str, str, str, object)
-    def change_publisher(self, publisher_id, topic_name, column_name, new_value, setter_callback):
-        handler = getattr(self, '_change_publisher_%s' % column_name, None)
+    def change_message(self, message_id, topic_name, column_name, new_value, setter_callback):
+        handler = getattr(self, '_change_message_%s' % column_name, None)
         if handler is not None:
             new_text = handler(self.message_info, topic_name, new_value)
             if new_text is not None:
                 setter_callback(new_text)
 
-#     def _change_publisher_topic(self, message_info, topic_name, new_value):
-#         message_info['enabled'] = (new_value and new_value.lower() in ['1', 'true', 'yes'])
-#         #qDebug('MsgEditor._change_publisher_enabled(): %s enabled: %s' % (message_info['topic_name'], message_info['enabled']))
-#         if message_info['enabled'] and message_info['rate'] > 0:
-#             message_info['timer'].start(int(1000.0 / message_info['rate']))
-#         else:
-#             message_info['timer'].stop()
-#         return None
-# 
-#     def _change_publisher_type(self, message_info, topic_name, new_value):
-#         type_name = new_value
-#         # create new slot
-#         slot_value = self._create_message_instance(type_name)
-# 
-#         # find parent slot
-#         slot_path = topic_name[len(message_info['topic_name']):].strip('/').split('/')
-#         parent_slot = eval('.'.join(["message_info['instance']"] + slot_path[:-1]))
-# 
-#         # find old slot
-#         slot_name = slot_path[-1]
-#         slot_index = parent_slot.__slots__.index(slot_name)
-# 
-#         # restore type if user value was invalid
-#         if slot_value is None:
-#             qWarning('MsgEditor._change_publisher_type(): could not find type: %s' % (type_name))
-#             return parent_slot._slot_types[slot_index]
-# 
-#         else:
-#             # replace old slot
-#             parent_slot._slot_types[slot_index] = type_name
-#             setattr(parent_slot, slot_name, slot_value)
-# 
-#             self._widget.message_tree_widget.model().update_publisher(message_info)
-# 
-#     def _change_publisher_rate(self, message_info, topic_name, new_value):
-#         try:
-#             rate = float(new_value)
-#         except Exception:
-#             qWarning('MsgEditor._change_publisher_rate(): could not parse rate value: %s' % (new_value))
-#         else:
-#             message_info['rate'] = rate
-#             #qDebug('MsgEditor._change_publisher_rate(): %s rate changed: %fHz' % (message_info['topic_name'], message_info['rate']))
-#             message_info['timer'].stop()
-#             if message_info['enabled'] and message_info['rate'] > 0:
-#                 message_info['timer'].start(int(1000.0 / message_info['rate']))
-#         # make sure the column value reflects the actual rate
-#         return '%.2f' % message_info['rate']
-
-    def _change_publisher_expression(self, message_info, topic_name, new_value):
+    def _change_message_expression(self, message_info, topic_name, new_value):
         expression = str(new_value)
         if len(expression) == 0:
             if topic_name in message_info['expressions']:
                 del message_info['expressions'][topic_name]
-                #qDebug('MsgEditor._change_publisher_expression(): removed expression for: %s' % (topic_name))
+                #qDebug('MsgEditor._change_message_expression(): removed expression for: %s' % (topic_name))
         else:
             slot_type, is_array = get_field_type(topic_name)
             if is_array:
@@ -306,7 +235,7 @@ class MsgEditor(Plugin):
             if success:
                 old_expression = message_info['expressions'].get(topic_name, None)
                 message_info['expressions'][topic_name] = expression
-                #print 'MsgEditor._change_publisher_expression(): topic: %s, type: %s, expression: %s' % (topic_name, slot_type, new_value)
+                #print 'MsgEditor._change_message_expression(): topic: %s, type: %s, expression: %s' % (topic_name, slot_type, new_value)
                 self._fill_message_slots(message_info['instance'], message_info['topic_name'], message_info['expressions'], message_info['counter'])
                 try:
                     message_info['instance']._check_types()
@@ -413,55 +342,22 @@ class MsgEditor(Plugin):
 
         return None
 
-    @Slot(int)
-    def publish_once(self, message_info):
-        # create publisher and timer
-        try:
-            message_info['publisher'] = rospy.Publisher(message_info['topic_name'], type(message_info['instance']), latch=False, queue_size=1)
-        except TypeError:
-            message_info['publisher'] = rospy.Publisher(message_info['topic_name'], type(message_info['instance']), latch=False)
-
-        self.message_info['counter'] += 1
-        self._fill_message_slots(self.message_info['instance'], self.message_info['topic_name'], self.message_info['expressions'], self.message_info['counter'])
-        self.message_info['publisher'].publish(self.message_info['instance'])
-
-#     @Slot(int)
-#     def remove_publisher(self):
-#         if self.message_info is not None:
-# #            self.message_info['timer'].stop()
-#             self.message_info['publisher'].unregister()
-#             del message_info
-
     def save_settings(self, plugin_settings, instance_settings):
         pass
-#         publisher_copies = []
-#         for publisher in self._publishers.values():
-#             publisher_copy = {}
-#             publisher_copy.update(publisher)
-#             publisher_copy['enabled'] = False
-#             del publisher_copy['timer']
-#             del publisher_copy['instance']
-#             del publisher_copy['publisher']
-#             publisher_copies.append(publisher_copy)
-#         instance_settings.set_value('publishers', repr(publisher_copies))
 
     def restore_settings(self, plugin_settings, instance_settings):
         pass
-#         publishers = eval(instance_settings.value('publishers', '[]'))
-#         for publisher in publishers:
-#             self._add_publisher(publisher)
 
-    def clean_up_publishers(self):
+    def clean_up_message(self):
         if hasattr(self, 'message_info'):
             self._widget.msg_type_combo_box.setEditText('')
             self._widget.message_tree_widget.model().clear()
-#            self.message_info['timer'].stop()
-            try:
-                self.message_info['publisher'].unregister()
-            except KeyError:
-                pass
+#             try:
+#                 self.message_info['publisher'].unregister()
+#             except KeyError:
+#                 pass
             del self.message_info
 
     def shutdown_plugin(self):
         self._widget.shutdown_plugin()
-        self.clean_up_publishers()
+        self.clean_up_message()

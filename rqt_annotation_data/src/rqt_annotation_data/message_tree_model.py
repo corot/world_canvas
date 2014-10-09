@@ -56,8 +56,8 @@ class MessageTreeModel(MessageTreeModel):
         super(MessageTreeModel, self).clear()
         self.setHorizontalHeaderLabels(self._column_names)
 
-    def get_publisher_ids(self, index_list):
-        return [item._user_data['publisher_id'] for item in self._get_toplevel_items(index_list)]
+    def get_message_ids(self, index_list):
+        return [item._user_data['message_id'] for item in self._get_toplevel_items(index_list)]
 
     def remove_items_with_parents(self, index_list):
         for item in self._get_toplevel_items(index_list):
@@ -76,31 +76,31 @@ class MessageTreeModel(MessageTreeModel):
             new_value = item.text().strip()
         #print 'MessageTreeModel.handle_item_changed(): %s, %s, %s' % (topic_name, column_name, new_value)
 
-        self.item_value_changed.emit(item._user_data['publisher_id'], topic_name, column_name, new_value, item.setText)
+        self.item_value_changed.emit(item._user_data['message_id'], topic_name, column_name, new_value, item.setText)
 
         # release lock
         self._item_change_lock.release()
 
-    def remove_publisher(self, publisher_id):
+    def remove_message(self, message_id):
         for top_level_row_number in range(self.rowCount()):
             item = self.item(top_level_row_number)
-            if item is not None and item._user_data['publisher_id'] == publisher_id:
+            if item is not None and item._user_data['message_id'] == message_id:
                 self.removeRow(top_level_row_number)
                 return top_level_row_number
         return None
 
-    def update_publisher(self, message_info):
-        top_level_row_number = self.remove_publisher(message_info['publisher_id'])
-        self.add_publisher(message_info, top_level_row_number)
+    def update_message(self, message_info):
+        top_level_row_number = self.remove_message(message_info['message_id'])
+        self.add_message(message_info, top_level_row_number)
 
-    def add_publisher(self, message_info, top_level_row_number=None):
+    def add_message(self, message_info, top_level_row_number=None):
         # recursively create widget items for the message's slots
         parent = self
         slot = message_info['instance']
         slot_name = message_info['annot_name']           
         slot_type = message_info['instance']._type
         slot_path = message_info['topic_name']
-        user_data = {'publisher_id': message_info['publisher_id']}
+        user_data = {'message_id': message_info['message_id']}
         kwargs = {
             'user_data': user_data,
             'top_level_row_number': top_level_row_number,
@@ -108,14 +108,7 @@ class MessageTreeModel(MessageTreeModel):
         }
         top_level_row = self._recursive_create_items(parent, slot, slot_name, slot_type, slot_path, **kwargs)
 
-        # fill tree widget columns of top level item
-#         if message_info['enabled']:
-#             top_level_row[self._column_index['topic']].setCheckState(Qt.Checked)
-#         top_level_row[self._column_index['rate']].setText(str(message_info['rate']))
-
     def _get_data_items_for_path(self, slot_name, slot_type, slot_path, **kwargs):
-#         if slot_name.startswith('/'):
-#             return (CheckableItem(slot_name), ReadonlyItem(slot_type), QStandardItem(''), ReadonlyItem(''))
         expression_item = QStandardItem('')
         expression_item.setToolTip('enter valid Python expression here, using "i" as counter and functions from math, random and time modules')
         return (ReadonlyItem(slot_name), ReadonlyItem(QStandardItem(slot_type)), expression_item)

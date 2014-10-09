@@ -30,9 +30,6 @@
 #define EDITOR_PANEL_H
 
 #include <ros/ros.h>
-#include <std_msgs/String.h>
-#include <ros/message_traits.h>
-#include <topic_tools/shape_shifter.h>
 
 #include <rviz/panel.h>
 
@@ -96,23 +93,12 @@ protected:
 
   Ui::EditorPanel *ui_;
 
-  ros::Publisher  marker_pub_;
-  ros::Publisher  annotation_pub_;
-  ros::Publisher  annot_data_pub_;
-  ros::Subscriber annot_data_sub_;
-  ros::Subscriber user_action_sub_;
-  ros::TransportHints th_;
-
   boost::shared_ptr<QProcess>        ext_process_;
   boost::shared_ptr<AnnotationsList> annotations_;
 
   QColor                             current_color_;
   world_canvas_msgs::Annotation::Ptr current_annot_;
   world_canvas_msgs::AnnotationData::Ptr current_data_;
-  boost::shared_ptr<topic_tools::ShapeShifter> current_msg_;
-
-  void userActCb(const std_msgs::String::ConstPtr& msg);
-  void annDataCb(const ros::MessageEvent<topic_tools::ShapeShifter>& msg_event);
 
   bool discardCurrentChanges();
   void annot2widgets(world_canvas_msgs::Annotation::Ptr annot);

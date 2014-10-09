@@ -50,9 +50,7 @@ from .message_tree_widget import MessageTreeWidget
 # main class inherits from the ui window class
 class MsgEditorWidget(QWidget):
     msg_type_changed = Signal(str)
-    change_publisher = Signal(int, str, str, str, object)
-#     publish_once = Signal(int)
-#     remove_publisher = Signal(int)
+    change_message = Signal(int, str, str, str, object)
     clean  = Signal()
     accept = Signal()
     cancel = Signal()
@@ -65,20 +63,10 @@ class MsgEditorWidget(QWidget):
         self._rospack = rospkg.RosPack()
         ui_file = os.path.join(self._rospack.get_path('rqt_annotation_data'), 'resource', 'MsgEditor.ui')
         loadUi(ui_file, self, {'ExtendedComboBox': ExtendedComboBox, 'MessageTreeWidget': MessageTreeWidget})
-#         self.refresh_button.setIcon(QIcon.fromTheme('view-refresh'))
-#         self.refresh_button.clicked.connect(self.refresh_combo_boxes)
-#         self.add_publisher_button.setIcon(QIcon.fromTheme('add'))
-#         self.remove_publisher_button.setIcon(QIcon.fromTheme('remove'))
-#         self.clear_button.setIcon(QIcon.fromTheme('edit-clear'))
 
         self.refresh_combo_boxes()
 
-        self.message_tree_widget.model().item_value_changed.connect(self.change_publisher)
-#         self.message_tree_widget.remove_publisher.connect(self.remove_publisher)
-#         self.message_tree_widget.publish_once.connect(self.publish_once)
-
-#        self.accept_button.clicked.connect(self.message_tree_widget.remove_selected_publishers)
-#        self.cancel_button.clicked.connect(self.message_tree_widget.remove_selected_publishers)
+        self.message_tree_widget.model().item_value_changed.connect(self.change_message)
         self.clear_button.clicked.connect(self.clean)
 
     def shutdown_plugin(self):
@@ -111,8 +99,6 @@ class MsgEditorWidget(QWidget):
             del self.prev_type_name
         message_type_names.append('') # null message type at first
         self.msg_type_combo_box.setItems.emit(sorted(message_type_names))
-        #self.msg_type_combo_box.setEditable(False)
-        #self.msg_type_combo_box.currentIndexChanged('')
 
         # update topic_combo_box
         _, _, topic_types = rospy.get_master().getTopicTypes()
@@ -124,14 +110,8 @@ class MsgEditorWidget(QWidget):
 
     @Slot(str)
     def on_msg_type_combo_box_currentIndexChanged(self, type_name):
-#         if hasattr(self, 'prev_type_name'):
-#             pass
         self.msg_type_changed.emit(type_name)
         self.prev_type_name = str(self.msg_type_combo_box.currentText())
-
-#         add_publisher.e
-#         if topic_name in self._topic_dict:
-#             self.msg_type_combo_box.setEditText(self._topic_dict[topic_name])
 
     @Slot()
     def on_accept_button_clicked(self):

@@ -35,9 +35,6 @@
 #include <QMessageBox>
 #include <QColorDialog>
 
-#include <visualization_msgs/MarkerArray.h>
-                                      #include <yocs_msgs/Wall.h>
-
 #include <yocs_math_toolkit/geometry.hpp>
 #include <world_canvas_client_cpp/unique_id.hpp>
 #include <world_canvas_msgs/EditAnnotationsData.h>
@@ -88,13 +85,6 @@ RVizPluginEditor::RVizPluginEditor(QWidget* parent)
   ui_->shapeComboBox->addItem("SPHERE", visualization_msgs::Marker::SPHERE);
   ui_->shapeComboBox->addItem("CYLINDER", visualization_msgs::Marker::CYLINDER);
   ui_->shapeComboBox->addItem("TEXT", visualization_msgs::Marker::TEXT_VIEW_FACING);
-
-//  // Other tweaks to the UI
-//  ui_->pickColorButton->setAutoFillBackground(true);
-//  ui_->pickColorButton->setFlat(true);
-
-  // Advertise a topic to publish a visual marker for the currently edited annotation
-  ///marker_pub_ = nh_.advertise <visualization_msgs::MarkerArray> ("current_annotation", 1, true);
 }
 
 void RVizPluginEditor::newButtonClicked()
@@ -220,129 +210,6 @@ void RVizPluginEditor::msgButtonClicked()
                                 QMessageBox::Ok);
   }
   QApplication::restoreOverrideCursor();
-
-//  annot_data_sub_ = nh_.subscribe("/_annotation_data_new_message_", 1, &RVizPluginEditor::annDataCb, this);
-//  user_action_sub_ = nh_.subscribe("/_annotation_data_user_action_", 1, &RVizPluginEditor::userActCb, this);
-//
-//  if (current_data_)
-//  {
-//    ros::serialization::IStream stream((uint8_t*)&current_data_->data[0], current_data_->data.size());
-//    topic_tools::ShapeShifter msg;
-//    msg.read(stream);
-//    yocs_msgs::Wall object;
-////    msg.morph(object, const std::string& datatype, const std::string& msg_def,
-////                 const std::string& latching);
-//    ROS_DEBUG("%d   %s   %d", current_data_->data.size(), msg.getDataType().c_str(), msg.size());
-//
-//    uint32_t serial_size = current_data_->data.size();
-//    boost::shared_array<uint8_t> buffer(new uint8_t[serial_size]);
-//    memcpy(buffer.get(), &current_data_->data[0], serial_size);
-//    ros::SerializedMessage sm(buffer, serial_size);
-//    sm.type_info = &typeid(object);
-//    sm.message_start += 4;
-//    try
-//    {
-//      ROS_DEBUG("Deserializing object '%s' of type '%s'",
-//                uuid::toHexString(current_data_->id).c_str(), current_data_->type.c_str());
-//      ros::serialization::deserializeMessage(sm, msg);
-//      ROS_DEBUG("%d   %s   %d", current_data_->data.size(), msg.getDataType().c_str(), msg.size());
-//      marker_pub_ = nh_.advertise <world_canvas_msgs::AnnotationData> ("funciona", 1, true);
-//      marker_pub_.publish(msg);
-////      count++;
-//    }
-//    catch (ros::serialization::StreamOverrunException& e)
-//    {
-//      ROS_ERROR("Deserialization failed on object: %s", e.what());
-//    }
-//    catch (ros::Exception& e)
-//    {
-//      ROS_ERROR(" failed on object: %s", e.what());
-//    }
-//    annot_data_pub_ = nh_.advertise<world_canvas_msgs::AnnotationData>("/_annotation_data_old_message_", 1, true);
-//    annot_data_pub_.publish(*current_data_);
-//  }
-//
-//  annotation_pub_ = nh_.advertise<world_canvas_msgs::Annotation>("/_annotation_data_annotation_", 1, true);
-//  annotation_pub_.publish(*current_annot_);
-}
-
-void RVizPluginEditor::userActCb(const std_msgs::String::ConstPtr& msg)
-{
-  // Only handle the cancelled action; the accepted one is handled on data received callback
-  ROS_DEBUG("User action received from annotation data RQT editor: %s", msg->data.c_str());
-  if (msg->data == "cancelled")
-  {
-    // The new annotation have type and data, so it's now complete; we can save it!
-    ui_->typeLineEdit->setText(current_data_->type.c_str());
-    ui_->saveAnnButton->setEnabled(true);
-
-    // Shutdown publishers as they are "private" temporal topics
-    annotation_pub_= ros::Publisher();
-    annot_data_pub_= ros::Publisher();
-
-    // Shutdown subscribers to protect against more than one incoming message
-    annot_data_sub_ = ros::Subscriber();
-    user_action_sub_= ros::Subscriber();
-
-  }
-}
-
-void RVizPluginEditor::annDataCb(const ros::MessageEvent<topic_tools::ShapeShifter>& msg_event)
-{
-  boost::shared_ptr<topic_tools::ShapeShifter const> const &msg = msg_event.getConstMessage();
-  boost::shared_ptr<const ros::M_string> const& connection_header = msg_event.getConnectionHeaderPtr();
-
-  ROS_DEBUG("Message of type '%s' and size %d bytes received", msg->getDataType().c_str(), msg->size());
-
-  current_data_.reset(new world_canvas_msgs::AnnotationData);
-  current_data_->id = uuid::toMsg(uuid::fromRandom());
-  current_data_->type = msg->getDataType();
-  current_data_->data.resize(msg->size() + 4);
-  *reinterpret_cast<uint32_t*>(&current_data_->data[0]) = msg->size();
-  ros::serialization::OStream stream((uint8_t*)&current_data_->data[4], msg->size());
-  msg->write(stream);
-
-  current_annot_->data_id = current_data_->id;
-  current_annot_->type = current_data_->type;
-
-  // The new annotation have type and data, so it's now complete; we can save it!
-  ui_->typeLineEdit->setText(current_data_->type.c_str());
-  ui_->saveAnnButton->setEnabled(true);
-
-  // Shutdown publishers as they are "private" temporal topics
-  annotation_pub_= ros::Publisher();
-  annot_data_pub_= ros::Publisher();
-
-  // Shutdown subscribers to protect against more than one incoming message
-  annot_data_sub_ = ros::Subscriber();
-  user_action_sub_= ros::Subscriber();
-
-
-//    for (int i = 0; i < current_data_->data.size(); ++i) {
-//      printf("%d  ", current_data_->data[i]);
-//
-//    }
-//
-//    yocs_msgs::Wall object;
-//    uint32_t serial_size = current_data_->data.size();
-//    boost::shared_array<uint8_t> buffer(new uint8_t[serial_size]);
-//    memcpy(buffer.get(), &current_data_->data[0], serial_size);
-//    ros::SerializedMessage sm(buffer, serial_size);
-//    sm.type_info = &typeid(object);
-//    sm.message_start;// += 4;
-//    try
-//    {
-//      ROS_DEBUG("Deserializing object '%s' of type '%s'",
-//                uuid::toHexString(current_data_->id).c_str(), current_data_->type.c_str());
-//      ros::serialization::deserializeMessage(sm, object);
-//      marker_pub_ = nh_.advertise <yocs_msgs::Wall> ("funciona", 1, true);
-//      marker_pub_.publish(object);
-////      count++;
-//    }
-//    catch (ros::serialization::StreamOverrunException& e)
-//    {
-//      ROS_ERROR("Deserialization failed on object: %s", e.what());
-//    }
 }
 
 void RVizPluginEditor::delButtonClicked()
