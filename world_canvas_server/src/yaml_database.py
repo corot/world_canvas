@@ -352,3 +352,5 @@ class YAMLDatabase:
             flow_list = flow_list[:-1] + ']\n'
 
             target = comp_re.sub(flow_list, target, 1)
+
+        return target
