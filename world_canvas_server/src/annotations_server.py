@@ -77,8 +77,13 @@ class AnnotationsServer:
         self.pub_data_srv = \
             rospy.Service('pub_annotations_data', PubAnnotationsData, self.pubAnnotationsData)
 
+        self.del_anns_srv = \
+            rospy.Service('delete_annotations',    DeleteAnnotations,   self.deleteAnnotations)
         self.save_data_srv = \
             rospy.Service('save_annotations_data', SaveAnnotationsData, self.saveAnnotationsData)
+
+        self.list_worlds_srv = \
+            rospy.Service('list_worlds',      ListWorlds,      self.listWorlds)
 
         self.set_keyword_srv = \
             rospy.Service('set_keyword',      SetKeyword,      self.setKeyword)
@@ -266,6 +271,32 @@ class AnnotationsServer:
         response.result = True
         return response
 
+    def deleteAnnotations(self, request):
+        '''
+          Deletes the given annotations and its data from database.
+
+          :param request: Service request.
+        '''
+        response = DeleteAnnotationsResponse()
+        
+        if len(request.annotations) == 0:
+            return self.serviceError(response, "No annotation ids on request; you must be kidding!")
+        
+        annot_data_ids = [a.data_id for a in request.annotations]
+        query = {'id': {'$in': [unique_id.toHexString(id) for id in annot_data_ids]}}
+        rospy.logdebug("Removing %d annotations data with query %s" % (len(annot_data_ids), query))
+        data_removed = self.data_collection.remove(query)
+        
+        annotation_ids = [a.id for a in request.annotations]
+        query = {'id': {'$in': [unique_id.toHexString(id) for id in annotation_ids]}}
+        rospy.logdebug("Removing %d annotations with query %s" % (len(annotation_ids), query))
+        removed = self.anns_collection.remove(query)
+        if removed == len(annotation_ids):
+            rospy.loginfo("%d annotations and %d data removed from database" % (removed, data_removed))
+            return self.serviceSuccess(response)
+        
+        return self.serviceError(response, "%d annotations deleted, while it was requested %d"
+                               % (removed, len(request.annotation_ids)))
 
     def saveAnnotationsData(self, request):
         '''
@@ -307,6 +338,22 @@ class AnnotationsServer:
         rospy.loginfo("%lu annotations saved" % len(request.annotations))
         response.result = True
         return response
+
+    def listWorlds(self, request):
+        response = ListWorldsResponse()
+        
+        # Query metadata for all annotations in database, shorted by
+        # world so we simplify the creation of the list of worlds
+        anns_metadata = self.anns_collection.query({}, metadata_only=True, sort_by='world')
+        while True:
+            try:
+                metadata = anns_metadata.next()
+                if response.names[-1] != metadata['world']:
+                    response.names.append(metadata['world'])
+            except IndexError:
+                response.names.append(metadata['world'])
+            except StopIteration:
+                return response
 
     def setKeyword(self, request):
         response = SetKeywordResponse()
