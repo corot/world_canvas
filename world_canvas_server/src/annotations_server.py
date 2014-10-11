@@ -80,6 +80,9 @@ class AnnotationsServer:
         self.save_data_srv = \
             rospy.Service('save_annotations_data', SaveAnnotationsData, self.saveAnnotationsData)
 
+        self.list_worlds_srv = \
+            rospy.Service('list_worlds',      ListWorlds,      self.listWorlds)
+
         self.set_keyword_srv = \
             rospy.Service('set_keyword',      SetKeyword,      self.setKeyword)
         self.set_related_srv = \
@@ -307,6 +310,22 @@ class AnnotationsServer:
         rospy.loginfo("%lu annotations saved" % len(request.annotations))
         response.result = True
         return response
+
+    def listWorlds(self, request):
+        response = ListWorldsResponse()
+        
+        # Query metadata for all annotations in database, shorted by
+        # world so we simplify the creation of the list of worlds
+        anns_metadata = self.anns_collection.query({}, metadata_only=True, sort_by='world')
+        while True:
+            try:
+                metadata = anns_metadata.next()
+                if response.names[-1] != metadata['world']:
+                    response.names.append(metadata['world'])
+            except IndexError:
+                response.names.append(metadata['world'])
+            except StopIteration:
+                return response
 
     def setKeyword(self, request):
         response = SetKeywordResponse()
