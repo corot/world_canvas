@@ -139,8 +139,7 @@ class AnnotationsServer:
             except StopIteration:
                 if (i == 0):
                     rospy.loginfo("No annotations found")
-                    response.result = True  # we don't consider this an error
-                    return response
+                    return self.serviceSuccess(response)  # we don't consider this an error
                 break
     
     
@@ -157,8 +156,7 @@ class AnnotationsServer:
 #         response.data        = matching_data
     
         rospy.loginfo("%lu annotations loaded" % i)
-        response.result = True
-        return response
+        return self.serviceSuccess(response)
         
     def getAnnotationsData(self, request):
         response = GetAnnotationsDataResponse()
@@ -183,8 +181,7 @@ class AnnotationsServer:
                     rospy.loginfo("%d objects found for %d annotations" % (i, len(request.annotation_ids)))
                 break
 
-        response.result = True
-        return response
+        return self.serviceSuccess(response)
         
     def pubAnnotationsData(self, request):
         response = PubAnnotationsDataResponse()
@@ -268,14 +265,13 @@ class AnnotationsServer:
                     pub.publish(object_list)
                 break
 
-        response.result = True
-        return response
+        return self.serviceSuccess(response)
 
     def deleteAnnotations(self, request):
         '''
           Deletes the given annotations and its data from database.
 
-          :param request: Service request.
+          @param request: Service request.
         '''
         response = DeleteAnnotationsResponse()
         
@@ -291,19 +287,23 @@ class AnnotationsServer:
         query = {'id': {'$in': [unique_id.toHexString(id) for id in annotation_ids]}}
         rospy.logdebug("Removing %d annotations with query %s" % (len(annotation_ids), query))
         removed = self.anns_collection.remove(query)
-        if removed == len(annotation_ids):
-            rospy.loginfo("%d annotations and %d data removed from database" % (removed, data_removed))
-            return self.serviceSuccess(response)
+        rospy.loginfo("%d annotations and %d data removed from database" % (removed, data_removed))
         
-        return self.serviceError(response, "%d annotations deleted, while it was requested %d"
-                               % (removed, len(request.annotation_ids)))
+        if removed != len(annotation_ids):
+            # Not all the doomed annotations where found on database. That's not terrible; can happen
+            # easily, for example as explained here: https://github.com/corot/world_canvas/issues/38
+            # TODO: but we should notify the client lib somehow
+            rospy.logwarn("Requested (%d) and deleted (%d) annotations counts doesn't match"
+                          % (len(annotation_ids), removed))
+        
+        return self.serviceSuccess(response)
 
     def saveAnnotationsData(self, request):
         '''
           Legacy method kept for debug purposes: saves together annotations and its data
           assuming a 1-1 relationship.
 
-          :param request: Service request.
+          @param request: Service request.
         '''
         response = SaveAnnotationsDataResponse()
 
@@ -336,8 +336,7 @@ class AnnotationsServer:
             self.data_collection.insert(data, data_metadata)
 
         rospy.loginfo("%lu annotations saved" % len(request.annotations))
-        response.result = True
-        return response
+        return self.serviceSuccess(response)
 
     def listWorlds(self, request):
         response = ListWorldsResponse()
@@ -415,8 +414,7 @@ class AnnotationsServer:
             # Already present; nothing to do (not an error)
             rospy.loginfo("%s already set on %s for annotation %s" % (element, md_field, annot_id))
 
-        response.result = True
-        return response
+        return self.serviceSuccess(response)
 
     def delElement(self, annot_id, element, metadata, md_field, response):
         # Look on metadata for md_field field, for the target element
@@ -440,8 +438,7 @@ class AnnotationsServer:
             self.anns_collection.update(metadata)
 
         # No error so return success
-        response.result = True
-        return response
+        return self.serviceSuccess(response)
 
     def resetDatabase(self, request):
         # Clear existing database content
@@ -450,9 +447,7 @@ class AnnotationsServer:
         self.data_collection.remove({})
 
         # No error so return success
-        response = ResetDatabaseResponse()
-        response.result = True
-        return response
+        return self.serviceSuccess(ResetDatabaseResponse(), 'Database cleared!')
 
 
     ##########################################################################
@@ -470,7 +465,7 @@ class AnnotationsServer:
             rospy.logwarn("Annotation %s not found" % annot_id)
             return annot_id, None
 
-    def serviceSuccess(self, response, message = None):
+    def serviceSuccess(self, response, message=None):
         if message is not None:
             rospy.loginfo(message)
         response.result = True
