@@ -23,8 +23,9 @@ public:
 
   bool add(const world_canvas_msgs::Annotation& annotation,
            const world_canvas_msgs::AnnotationData& annot_data);
-
-  bool del(const uuid_msgs::UniqueID& id);
+  bool update(const world_canvas_msgs::Annotation& annotation,
+              const world_canvas_msgs::AnnotationData& annot_data);
+  bool remove(const uuid_msgs::UniqueID& id);
   bool save();
   bool check();
 

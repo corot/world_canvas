@@ -162,6 +162,8 @@ void RVizPluginEditor::msgButtonClicked()
   {
     ROS_INFO("Requesting rqt_annotation_data to create annotation's data from scratch");
     srv.request.action = world_canvas_msgs::EditAnnotationsData::Request::NEW;
+    srv.request.data.id = uuid::toMsg(uuid::fromRandom());
+    // We provide the uuid, so the plugin doesn't need extra dependency on uuid library
   }
 
   if (client.call(srv))
@@ -229,7 +231,7 @@ void RVizPluginEditor::delButtonClicked()
   if (ret != QMessageBox::Yes)
     return;
 
-  worlds_list_->annotations_->del(current_annot_->id);
+  worlds_list_->annotations_->remove(current_annot_->id);
 
   // Reset current annotation and make widgets empty
   current_annot_.reset();
@@ -272,12 +274,22 @@ void RVizPluginEditor::saveButtonClicked()
     // Only apply for the 1st valid case
     ui_->delAnnButton->setEnabled(true);
 
-    // TODO: replace by an "update" method; and provide feedback to user in case of failure  URGENT -->  creates a problem now!!!
-    worlds_list_->annotations_->del(current_annot_->id);
-    if (worlds_list_->annotations_->add(*current_annot_, *current_data_) == false)
+    // Add a new/update current annotation. TODO: provide feedback to user in case of failure
+    if (worlds_list_->annotations_->hasAnnotation(current_annot_->id))
     {
-      ROS_ERROR("Add annotations failed");
-      return;
+      if (worlds_list_->annotations_->update(*current_annot_, *current_data_) == false)
+      {
+        ROS_ERROR("Update annotations failed");
+        return;
+      }
+    }
+    else
+    {
+      if (worlds_list_->annotations_->add(*current_annot_, *current_data_) == false)
+      {
+        ROS_ERROR("Add annotations failed");
+        return;
+      }
     }
   }
 

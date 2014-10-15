@@ -106,7 +106,63 @@ bool AnnotationsList::add(const world_canvas_msgs::Annotation& annotation,
   return true;
 }
 
-bool AnnotationsList::del(const uuid_msgs::UniqueID& id)
+bool AnnotationsList::update(const world_canvas_msgs::Annotation& annotation,
+                             const world_canvas_msgs::AnnotationData& annot_data)
+{
+  if (annotation.data_id.uuid != annot_data.id.uuid)
+  {
+    ROS_ERROR("Incoherent annotation and data uuids '%s' != '%s'",
+              uuid::toHexString(annotation.id).c_str(), uuid::toHexString(annot_data.id).c_str());
+    return false;
+  }
+
+  bool found = false;
+  for (unsigned int i = 0; i < this->annotations.size(); i++)
+  {
+    if (this->annotations[i].id.uuid == annotation.id.uuid)
+    {
+      this->annotations[i] = annotation;
+      found = true;
+      break;
+    }
+  }
+
+  if (found == false)
+  {
+    ROS_ERROR("Annotation uuid '%s' not found", uuid::toHexString(annotation.id).c_str());
+    return false;
+  }
+
+  found = false;
+  for (unsigned int i = 0; i < this->annots_data.size(); i++)
+  {
+    if (this->annots_data[i].id.uuid == annot_data.id.uuid)
+    {
+      this->annots_data[i] = annot_data;
+      found = true;
+      break;
+    }
+  }
+
+  if (found == false)
+  {
+    ROS_ERROR("Annotation data uuid '%s' not found", uuid::toHexString(annot_data.id).c_str());
+    return false;
+  }
+
+  // Re-publish annotations' visual markers to reflect changes
+  this->publishMarkers("annotation_markers");
+
+  // Reflect changes on the tree widget
+  assert(tree_item_);
+  this->updateWidget(tree_item_);
+
+  saved_ = false;
+
+  return true;
+}
+
+bool AnnotationsList::remove(const uuid_msgs::UniqueID& id)
 {
   for (unsigned int i = 0; i < this->annotations.size(); i++)
   {
