@@ -33,7 +33,7 @@
 
 #include <rviz/panel.h>
 
-#include "annotations.hpp"
+#include "worlds_list.hpp"
 
 namespace Ui
 {
@@ -82,6 +82,8 @@ public Q_SLOTS:
   void delButtonClicked();
   void saveButtonClicked();
   void pickColorClicked();
+  void annsTreeDoubleClicked(QTreeWidgetItem *item, int column);
+  void worldSelected(QTreeWidgetItem *item, int column);
   void annotSelected(QTreeWidgetItem *item, int column);
 
   // Here we declare some internal slots.
@@ -93,8 +95,8 @@ protected:
 
   Ui::EditorPanel *ui_;
 
-  boost::shared_ptr<QProcess>        ext_process_;
-  boost::shared_ptr<AnnotationsList> annotations_;
+  boost::shared_ptr<QProcess>   ext_process_;
+  boost::shared_ptr<WorldsList> worlds_list_;
 
   QColor                             current_color_;
   world_canvas_msgs::Annotation::Ptr current_annot_;

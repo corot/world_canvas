@@ -43,30 +43,15 @@
 
 #include "ui_editor_panel.h"
 
-#define WORLD_NAME_TODO "Maze world"
 
 namespace wcf
 {
 
-// BEGIN_TUTORIAL
-// Here is the implementation of the RVizPluginEditor class.  RVizPluginEditor
-// has these responsibilities:
-//
-// - Act as a container for GUI elements DriveWidget and QLineEdit.
-// - Publish command velocities 10 times per second (whether 0 or not).
-// - Saving and restoring internal state from a config file.
-//
-// We start with the constructor, doing the standard Qt thing of
-// passing the optional *parent* argument on to the superclass
-// constructor, and also zero-ing the velocities we will be
-// publishing.
 RVizPluginEditor::RVizPluginEditor(QWidget* parent)
   : rviz::Panel(parent), ui_(new Ui::EditorPanel())
 {
   // set up the GUI
   ui_->setupUi(this);
-
-  annotations_.reset(new AnnotationsList(WORLD_NAME_TODO, ui_->annsTreeWidget));
 
   // connect buttons to actions
   connect( ui_->newAnnButton, SIGNAL( clicked() ), this, SLOT( newButtonClicked() ));
@@ -78,7 +63,12 @@ RVizPluginEditor::RVizPluginEditor(QWidget* parent)
 
   // connect other signals to slots
   connect( ui_->annsTreeWidget, SIGNAL( itemDoubleClicked(QTreeWidgetItem *, int)),
-           this, SLOT( annotSelected(QTreeWidgetItem *, int) ));
+           this, SLOT( annsTreeDoubleClicked(QTreeWidgetItem *, int) ));
+
+  // Configure worlds and annotations tree widget with wider columns
+  worlds_list_.reset(new WorldsList("", ui_->annsTreeWidget));
+  ui_->annsTreeWidget->header()->resizeSection(0, 200);
+  ui_->annsTreeWidget->header()->resizeSection(1, 200);
 
   // Manually build the shape combo so I can get custom values according to Annotation msg
   ui_->shapeComboBox->addItem("CUBE", visualization_msgs::Marker::CUBE);
@@ -96,16 +86,16 @@ void RVizPluginEditor::newButtonClicked()
     return;
 
   current_annot_.reset(new world_canvas_msgs::Annotation);
-  current_annot_->world = WORLD_NAME_TODO;
+  current_annot_->world = worlds_list_->getName(worlds_list_->getCurrent());
   current_annot_->id = uuid::toMsg(uuid::fromRandom());
-  current_annot_->pose.header.frame_id = "/map";  // TODO
+  current_annot_->pose.header.frame_id = "/map";  // TODO  part of world????
   current_annot_->pose.pose.pose.orientation.w = 1.0;  // Avoid non-normalized quaternions
   current_annot_->shape = visualization_msgs::Marker::TEXT_VIEW_FACING; // reasonable default
   current_annot_->color.a = 0.5;  // Avoid a rather confusing invisible shape
 
   annot2widgets(current_annot_);
 
-  annotations_->publishMarker("current_annotation", -1, *current_annot_);
+  worlds_list_->annotations_->publishMarker("current_annotation", -1, *current_annot_);
 
   ui_->updateButton->setEnabled(true);
   ui_->editMsgButton->setEnabled(true);
@@ -120,9 +110,11 @@ void RVizPluginEditor::updButtonClicked()
 
   widgets2annot(current_annot_);
 
-  annotations_->publishMarker("current_annotation", -1, *current_annot_);
+  worlds_list_->annotations_->publishMarker("current_annotation", -1, *current_annot_);
 
-  ui_->saveAnnButton->setEnabled(true);
+  // Now it makes sense to save but only if we have already annotation's data
+  if (current_data_)
+    ui_->saveAnnButton->setEnabled(true);
 }
 
 void RVizPluginEditor::msgButtonClicked()
@@ -239,8 +231,88 @@ void RVizPluginEditor::delButtonClicked()
   ui_->saveAnnButton->setEnabled(true);
   ui_->pickColorButton->setEnabled(false);
 
-  annotations_->del(current_annot_->id);
+  worlds_list_->annotations_->del(current_annot_->id);
 
+  // Reset current annotation and make widgets empty
+  current_annot_.reset();
+  current_data_.reset();
+
+  world_canvas_msgs::Annotation::Ptr empty(new world_canvas_msgs::Annotation);
+  empty->pose.pose.pose.orientation.w = 1.0;  // Avoid non-normalized quaternions
+  annot2widgets(empty);
+
+  ///////////////// TODO worlds_list_->annotations_->clearMarkers("current_annotation");  a ver si limpia tb los otros!!!!
+}
+
+void RVizPluginEditor::saveButtonClicked()
+{
+  if (!current_annot_ != ! current_data_)
+  {
+    // XOR; this should not happen, as the save button should be disabled in this case!
+    // The 2 valid cases are:
+    //  - true, true: where we are editing an annotations already having data
+    //  - false, false: we have deleted the current annotation and we want to remove also from database
+    ROS_ERROR("Missing current annotation [data]: %d, %d", current_annot_?true:false, current_data_?true:false);
+    assert(current_annot_);
+    assert(current_data_);
+    return;
+  }
+  ROS_DEBUG("Save annotation");
+
+  if (current_annot_ && current_data_)
+  {
+    // Only apply for the 1st valid case
+    ui_->delAnnButton->setEnabled(true);
+
+    // TODO: replace by an "update" method; and provide feedback to user in case of failure
+    worlds_list_->annotations_->del(current_annot_->id);
+    if (worlds_list_->annotations_->add(*current_annot_, *current_data_) == false)
+    {
+      ROS_ERROR("Add annotations failed");
+      return;
+    }
+  }
+
+  // The rest apply for both
+  ui_->saveAnnButton->setEnabled(false);
+
+  if (worlds_list_->annotations_->save() == false)
+  {
+    ROS_ERROR("Save annotations failed");
+  }
+}
+
+void RVizPluginEditor::annsTreeDoubleClicked(QTreeWidgetItem *item, int column)
+{
+  if (item->parent() == NULL)
+  {
+    worldSelected(item, column);
+  }
+  else
+  {
+    annotSelected(item, column);
+  }
+}
+
+void RVizPluginEditor::worldSelected(QTreeWidgetItem *item, int column)
+{
+  // Check that user is not selecting again the current world
+  int world_index = ui_->annsTreeWidget->indexOfTopLevelItem(item);
+  if (world_index == worlds_list_->getCurrent())
+    return;
+
+  ROS_DEBUG("World %d selected (%s)", world_index, worlds_list_->getName(world_index).c_str());
+  ui_->newAnnButton->setEnabled(true);
+
+  // Change world resets current annotation, so confirm that user want to discard changes (if any)
+  if (discardCurrentChanges() == false)
+    return;
+
+  worlds_list_->setCurrent(world_index);
+  ui_->editAnnGroupBox->setTitle(tr("Edit annotations for world '%1'")
+                                 .arg(worlds_list_->getName(world_index).c_str()));
+
+  // Reset current annotation and make widgets empty
   current_annot_.reset();
   current_data_.reset();
 
@@ -249,53 +321,19 @@ void RVizPluginEditor::delButtonClicked()
   annot2widgets(empty);
 }
 
-void RVizPluginEditor::saveButtonClicked()
-{
-  if (!current_annot_ || ! current_data_)
-  {
-    // This should not happen, as the save button should be disabled in this case!
-    ROS_ERROR("Missing current annotation [data]: %d, %d", current_annot_?true:false, current_data_?true:false);
-    assert(current_annot_);
-    assert(current_data_);
-    return;
-  }
-  ROS_DEBUG("Save annotation");
-
-  ui_->delAnnButton->setEnabled(true);
-  ui_->saveAnnButton->setEnabled(false);
-
-  // TODO: replace by an "update" method; and provide feedback to user in case of failure
-  annotations_->del(current_annot_->id);
-  if (annotations_->add(*current_annot_, *current_data_) == false)
-  {
-    ROS_ERROR("Add annotations failed");
-    return;
-  }
-
-  if (annotations_->save() == false)
-  {
-    ROS_ERROR("Save annotations failed");
-  }
-}
-
-
 void RVizPluginEditor::annotSelected(QTreeWidgetItem *item, int column)
 {
-  int sel_index = ui_->annsTreeWidget->indexOfTopLevelItem(item);
-  ROS_DEBUG("Annotation %d selected", sel_index);
+  int annot_index = item->parent()->indexOfChild(item);
+  ROS_DEBUG("Annotation %d selected", annot_index);
 
   // Check that user is not selecting again the current annotation
-  if (current_annot_ && (current_annot_->id.uuid == annotations_->at(sel_index).id.uuid))
-    return;
-
-  // Confirm that user want to discard current changes (if any)
-  if (discardCurrentChanges() == false)
+  if (current_annot_ && (current_annot_->id.uuid == worlds_list_->annotations_->at(annot_index).id.uuid))
     return;
 
   current_annot_.reset(new world_canvas_msgs::Annotation);
-  *current_annot_ = annotations_->at(sel_index);
+  *current_annot_ = worlds_list_->annotations_->at(annot_index);
   current_data_.reset(new world_canvas_msgs::AnnotationData);
-  *current_data_ = annotations_->getData(*current_annot_);
+  *current_data_ = worlds_list_->annotations_->getData(*current_annot_);
 
   annot2widgets(current_annot_);
 
@@ -364,7 +402,7 @@ void RVizPluginEditor::widgets2annot(world_canvas_msgs::Annotation::Ptr annot)
   for (int i = 0; i < list.count(); ++i)
   {
     // Annotations store relationships as uuid, but the user only works with the annotation's name
-    std::vector<world_canvas_msgs::Annotation> anns = annotations_->getAnnotations(list[i].toStdString());
+    std::vector<world_canvas_msgs::Annotation> anns = worlds_list_->annotations_->getAnnotations(list[i].toStdString());
 
     ROS_DEBUG("%lu",anns.size());
     if (anns.size() == 0)
@@ -427,7 +465,7 @@ void RVizPluginEditor::annot2widgets(world_canvas_msgs::Annotation::Ptr annot)
     try
     {
       // Annotations store relationships as uuid, but the user only works with the annotation's name
-      std::string relatedAnn = annotations_->getAnnotation(annot->relationships[i]).name;
+      std::string relatedAnn = worlds_list_->annotations_->getAnnotation(annot->relationships[i]).name;
       ui_->relatedsTextEdit->append(relatedAnn.c_str());
     }
     catch (ros::Exception& e)

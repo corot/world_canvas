@@ -44,7 +44,7 @@
        <bool>false</bool>
       </attribute>
       <attribute name="headerMinimumSectionSize">
-       <number>28</number>
+       <number>100</number>
       </attribute>
       <column>
        <property name="text">
@@ -64,7 +64,7 @@
      </widget>
     </item>
     <item>
-     <widget class="QGroupBox" name="groupBox">
+     <widget class="QGroupBox" name="editAnnGroupBox">
       <property name="sizePolicy">
        <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
         <horstretch>0</horstretch>
@@ -72,7 +72,7 @@
        </sizepolicy>
       </property>
       <property name="title">
-       <string>Add / Edit Annotation</string>
+       <string>Edit Annotations</string>
       </property>
       <layout class="QVBoxLayout" name="verticalLayout_8">
        <item>
@@ -87,6 +87,9 @@
           <enum>Qt::Horizontal</enum>
          </property>
          <widget class="QPushButton" name="newAnnButton">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
           <property name="text">
            <string>New</string>
           </property>
@@ -536,6 +539,29 @@
    </layout>
   </widget>
  </widget>
+ <tabstops>
+  <tabstop>annsTreeWidget</tabstop>
+  <tabstop>newAnnButton</tabstop>
+  <tabstop>nameLineEdit</tabstop>
+  <tabstop>typeLineEdit</tabstop>
+  <tabstop>lDoubleSpinBox</tabstop>
+  <tabstop>wDoubleSpinBox</tabstop>
+  <tabstop>hDoubleSpinBox</tabstop>
+  <tabstop>shapeComboBox</tabstop>
+  <tabstop>pickColorButton</tabstop>
+  <tabstop>xDoubleSpinBox</tabstop>
+  <tabstop>yDoubleSpinBox</tabstop>
+  <tabstop>zDoubleSpinBox</tabstop>
+  <tabstop>rollDoubleSpinBox</tabstop>
+  <tabstop>pitchDoubleSpinBox</tabstop>
+  <tabstop>yawDoubleSpinBox</tabstop>
+  <tabstop>keywordsTextEdit</tabstop>
+  <tabstop>relatedsTextEdit</tabstop>
+  <tabstop>updateButton</tabstop>
+  <tabstop>editMsgButton</tabstop>
+  <tabstop>delAnnButton</tabstop>
+  <tabstop>saveAnnButton</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>
