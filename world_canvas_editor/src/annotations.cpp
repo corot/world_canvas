@@ -22,7 +22,7 @@ namespace wcf
 {
 
 AnnotationsList::AnnotationsList(const std::string& world)
-               : AnnotationCollection(world)
+               : AnnotationCollection(world), tree_item_(NULL)
 {
   this->load();
   this->loadData();
@@ -30,6 +30,10 @@ AnnotationsList::AnnotationsList(const std::string& world)
 
   // Publish annotations' visual markers
   this->publishMarkers("annotation_markers");
+}
+
+AnnotationsList::~AnnotationsList()
+{
 }
 
 void AnnotationsList::updateWidget(QTreeWidgetItem* tree_item)
@@ -93,6 +97,7 @@ bool AnnotationsList::add(const world_canvas_msgs::Annotation& annotation,
   this->publishMarkers("annotation_markers");
 
   // Reflect changes on the tree widget
+  assert(tree_item_);
   this->updateWidget(tree_item_);
 
   return true;
@@ -115,10 +120,11 @@ bool AnnotationsList::del(const uuid_msgs::UniqueID& id)
           this->annotations.erase(this->annotations.begin() + i);
           this->annots_data.erase(this->annots_data.begin() + j);
 
-          // Re-pPublish annotations' visual markers to reflect the incorporation
+          // Re-publish annotations' visual markers to reflect the leave
           this->publishMarkers("annotation_markers");
 
           // Reflect changes on the tree widget
+          assert(tree_item_);
           this->updateWidget(tree_item_);
 
           return true;

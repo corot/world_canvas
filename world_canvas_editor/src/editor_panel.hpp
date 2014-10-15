@@ -105,6 +105,8 @@ protected:
   bool discardCurrentChanges();
   void annot2widgets(world_canvas_msgs::Annotation::Ptr annot);
   void widgets2annot(world_canvas_msgs::Annotation::Ptr annot);
+  void showCurrentAnnot();
+  void hideCurrentAnnot();
 };
 
 } // end namespace wcf

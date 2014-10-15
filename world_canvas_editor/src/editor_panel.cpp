@@ -94,8 +94,7 @@ void RVizPluginEditor::newButtonClicked()
   current_annot_->color.a = 0.5;  // Avoid a rather confusing invisible shape
 
   annot2widgets(current_annot_);
-
-  worlds_list_->annotations_->publishMarker("current_annotation", -1, *current_annot_);
+  showCurrentAnnot();
 
   ui_->updateButton->setEnabled(true);
   ui_->editMsgButton->setEnabled(true);
@@ -109,8 +108,7 @@ void RVizPluginEditor::updButtonClicked()
   ROS_DEBUG("Update annotation");
 
   widgets2annot(current_annot_);
-
-  worlds_list_->annotations_->publishMarker("current_annotation", -1, *current_annot_);
+  showCurrentAnnot();
 
   // Now it makes sense to save but only if we have already annotation's data
   if (current_data_)
@@ -240,8 +238,7 @@ void RVizPluginEditor::delButtonClicked()
   world_canvas_msgs::Annotation::Ptr empty(new world_canvas_msgs::Annotation);
   empty->pose.pose.pose.orientation.w = 1.0;  // Avoid non-normalized quaternions
   annot2widgets(empty);
-
-  ///////////////// TODO worlds_list_->annotations_->clearMarkers("current_annotation");  a ver si limpia tb los otros!!!!
+  hideCurrentAnnot();
 }
 
 void RVizPluginEditor::saveButtonClicked()
@@ -319,6 +316,13 @@ void RVizPluginEditor::worldSelected(QTreeWidgetItem *item, int column)
   world_canvas_msgs::Annotation::Ptr empty(new world_canvas_msgs::Annotation);
   empty->pose.pose.pose.orientation.w = 1.0;  // Avoid non-normalized quaternions
   annot2widgets(empty);
+  hideCurrentAnnot();
+
+  ui_->updateButton->setEnabled(false);
+  ui_->editMsgButton->setEnabled(false);
+  ui_->delAnnButton->setEnabled(false);
+  ui_->saveAnnButton->setEnabled(false);
+  ui_->pickColorButton->setEnabled(false);
 }
 
 void RVizPluginEditor::annotSelected(QTreeWidgetItem *item, int column)
@@ -336,6 +340,7 @@ void RVizPluginEditor::annotSelected(QTreeWidgetItem *item, int column)
   *current_data_ = worlds_list_->annotations_->getData(*current_annot_);
 
   annot2widgets(current_annot_);
+  showCurrentAnnot();
 
   ui_->updateButton->setEnabled(true);
   ui_->editMsgButton->setEnabled(true);
@@ -403,8 +408,6 @@ void RVizPluginEditor::widgets2annot(world_canvas_msgs::Annotation::Ptr annot)
   {
     // Annotations store relationships as uuid, but the user only works with the annotation's name
     std::vector<world_canvas_msgs::Annotation> anns = worlds_list_->annotations_->getAnnotations(list[i].toStdString());
-
-    ROS_DEBUG("%lu",anns.size());
     if (anns.size() == 0)
     {
       ROS_WARN("No relationship fetched for name '%s'", list[i].toStdString().c_str());
@@ -487,6 +490,21 @@ bool RVizPluginEditor::discardCurrentChanges()
                                  QMessageBox::Cancel);
   return (ret == QMessageBox::Yes);
 }
+
+void RVizPluginEditor::showCurrentAnnot()
+{
+  assert(current_annot_);
+  float tmp = current_annot_->color.a;
+  current_annot_->color.a = 1.0;
+  worlds_list_->annotations_->publishMarker("current_annotation", -1, *current_annot_);
+  current_annot_->color.a = tmp;
+}
+
+void RVizPluginEditor::hideCurrentAnnot()
+{
+  worlds_list_->annotations_->clearMarkers("current_annotation");
+}
+
 
 // Save all configuration data from this panel to the given
 // Config object.  It is important here that you call save()
