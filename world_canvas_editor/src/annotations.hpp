@@ -33,11 +33,14 @@ public:
 
   void updateWidget(QTreeWidgetItem* tree_item);
 
+  bool saved() { return saved_; }
+
 private:
   QTreeWidgetItem* tree_item_;
-  // Prepare the annotation collection
-  //FilterCriteria filter(world_name, uuids, names, types, keywords, relationships);
-  ////AnnotationCollection ac_;
+  std::vector<world_canvas_msgs::Annotation> annots_to_delete_;
+  bool saved_;
+
+  bool saveDeletes();
 };
 
 } // namespace wcf

@@ -13,6 +13,7 @@
 #include <yocs_math_toolkit/common.hpp>
 #include <world_canvas_client_cpp/unique_id.hpp>
 
+#include <world_canvas_msgs/DeleteAnnotations.h>
 #include <world_canvas_msgs/SaveAnnotationsData.h>
 
 
@@ -22,7 +23,7 @@ namespace wcf
 {
 
 AnnotationsList::AnnotationsList(const std::string& world)
-               : AnnotationCollection(world), tree_item_(NULL)
+               : AnnotationCollection(world), tree_item_(NULL), saved_(false)
 {
   this->load();
   this->loadData();
@@ -100,6 +101,8 @@ bool AnnotationsList::add(const world_canvas_msgs::Annotation& annotation,
   assert(tree_item_);
   this->updateWidget(tree_item_);
 
+  saved_ = false;
+
   return true;
 }
 
@@ -115,6 +118,9 @@ bool AnnotationsList::del(const uuid_msgs::UniqueID& id)
       {
         if (this->annots_data[j].id.uuid == this->annotations[i].data_id.uuid)
         {
+          annots_to_delete_.push_back(this->annotations[i]);
+          saved_ = false;
+
           ROS_DEBUG("Removed annotation with uuid '%s'  %u  %u", uuid::toHexString(this->annotations[i].id).c_str(),      i,j);
           ROS_DEBUG("Removed annot. data with uuid '%s'", uuid::toHexString(this->annots_data[j].id).c_str());
           this->annotations.erase(this->annotations.begin() + i);
@@ -204,6 +210,49 @@ bool AnnotationsList::save()
               this->annotations.size(), this->annots_data.size(), srv.request.annotations.size(), srv.request.data.size());
   }
 
+  bool result = false;
+  if (client.call(srv))
+  {
+    if (srv.response.result == true)
+    {
+      result = true;
+    }
+    else
+    {
+      ROS_ERROR("Server reported an error: %s", srv.response.message.c_str());
+    }
+  }
+  else
+  {
+    ROS_ERROR("Failed to call save_annotations_data service");
+  }
+
+  if (result == true)
+    saved_ = true;
+
+  return result && saveDeletes();
+}
+
+bool AnnotationsList::saveDeletes()
+{
+  // We remove from database the annotations doomed by delete method, if any
+  if (annots_to_delete_.size() == 0)
+    return true;
+
+  ros::NodeHandle nh;
+  ros::ServiceClient client =
+      nh.serviceClient<world_canvas_msgs::DeleteAnnotations>("delete_annotations");
+  ROS_INFO("Waiting for delete_annotations service...");
+  if (client.waitForExistence(ros::Duration(5.0)) == false)
+  {
+    ROS_ERROR("Service delete_annotations not available after 5s");
+    return false;
+  }
+
+  // Request server to save current annotations list, with its data
+  ROS_INFO("Requesting server to delete annotations");
+  world_canvas_msgs::DeleteAnnotations srv;
+  srv.request.annotations = annots_to_delete_;
   if (client.call(srv))
   {
     if (srv.response.result == true)
@@ -218,7 +267,7 @@ bool AnnotationsList::save()
   }
   else
   {
-    ROS_ERROR("Failed to call save_annotations_data service");
+    ROS_ERROR("Failed to call delete_annotations service");
     return false;
   }
 }
