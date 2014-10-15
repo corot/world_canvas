@@ -75,6 +75,8 @@ RVizPluginEditor::RVizPluginEditor(QWidget* parent)
   ui_->shapeComboBox->addItem("SPHERE", visualization_msgs::Marker::SPHERE);
   ui_->shapeComboBox->addItem("CYLINDER", visualization_msgs::Marker::CYLINDER);
   ui_->shapeComboBox->addItem("TEXT", visualization_msgs::Marker::TEXT_VIEW_FACING);
+
+  changes_saved_ = true;
 }
 
 void RVizPluginEditor::newButtonClicked()
@@ -93,6 +95,7 @@ void RVizPluginEditor::newButtonClicked()
   current_annot_->shape = visualization_msgs::Marker::TEXT_VIEW_FACING; // reasonable default
   current_annot_->color.a = 0.5;  // Avoid a rather confusing invisible shape
 
+  // Update GUI
   annot2widgets(current_annot_);
   showCurrentAnnot();
 
@@ -109,6 +112,7 @@ void RVizPluginEditor::updButtonClicked()
 
   widgets2annot(current_annot_);
   showCurrentAnnot();
+  changes_saved_ = false;
 
   // Now it makes sense to save but only if we have already annotation's data
   if (current_data_)
@@ -121,8 +125,7 @@ void RVizPluginEditor::msgButtonClicked()
 
   ext_process_.reset(new QProcess(this));
   QString command_line = "rosrun rqt_annotation_data rqt_annotation_data";
-  QStringList parameters;
-  parameters << "param1" << "param2" << "param3";
+  // QStringList parameters; parameters << "param1" << "param2" << "param3";
 
   QApplication::setOverrideCursor(Qt::WaitCursor);
   ext_process_->start(command_line);//, parameters);
@@ -145,6 +148,7 @@ void RVizPluginEditor::msgButtonClicked()
   }
 
   // Prepare request depending on whether current annotation has already associated data
+  assert(current_annot_);
   world_canvas_msgs::EditAnnotationsData srv;
   srv.request.annotation = *current_annot_;
 
@@ -167,16 +171,16 @@ void RVizPluginEditor::msgButtonClicked()
       case world_canvas_msgs::EditAnnotationsData::Response::UPDATE:
         if (!current_data_)
           current_data_.reset(new world_canvas_msgs::AnnotationData);
-        *current_data_ = srv.response.data;
-//        current_data_->id = uuid::toMsg(uuid::fromRandom());
-//        current_data_->type = msg->getDataType();
-//        current_data_->data.resize(msg->size() + 4);
 
-//        current_annot_->data_id = current_data_->id;
-//        current_annot_->type = current_data_->type;
+        *current_data_ = srv.response.data;
+
+        current_annot_->data_id = current_data_->id;
+        current_annot_->type = current_data_->type;
+
         // The current annotation have type and data, so it's now complete; we can save it!
         ui_->typeLineEdit->setText(current_data_->type.c_str());
         ui_->saveAnnButton->setEnabled(true);
+        changes_saved_ = false;
         break;
       case world_canvas_msgs::EditAnnotationsData::Response::DELETE:
         current_data_.reset();
@@ -184,6 +188,7 @@ void RVizPluginEditor::msgButtonClicked()
         // The current annotation have no type or data anymore; we cannot save it
         ui_->typeLineEdit->setText("");
         ui_->saveAnnButton->setEnabled(false);
+        changes_saved_ = false;
         break;
       case world_canvas_msgs::EditAnnotationsData::Response::CANCEL:
         break;
@@ -204,6 +209,8 @@ void RVizPluginEditor::msgButtonClicked()
 
 void RVizPluginEditor::delButtonClicked()
 {
+  ROS_DEBUG("Delete annotation");
+
   if (!current_annot_ || ! current_data_)
   {
     // This should not happen, as the delete button should be disabled in this case!
@@ -212,7 +219,6 @@ void RVizPluginEditor::delButtonClicked()
     assert(current_data_);
     return;
   }
-  ROS_DEBUG("Delete annotation");
 
   // Confirmation dialog
   int ret = QMessageBox::question(this, tr("Annotations Editor"),
@@ -223,12 +229,6 @@ void RVizPluginEditor::delButtonClicked()
   if (ret != QMessageBox::Yes)
     return;
 
-  ui_->updateButton->setEnabled(false);
-  ui_->editMsgButton->setEnabled(false);
-  ui_->delAnnButton->setEnabled(false);
-  ui_->saveAnnButton->setEnabled(true);
-  ui_->pickColorButton->setEnabled(false);
-
   worlds_list_->annotations_->del(current_annot_->id);
 
   // Reset current annotation and make widgets empty
@@ -237,12 +237,24 @@ void RVizPluginEditor::delButtonClicked()
 
   world_canvas_msgs::Annotation::Ptr empty(new world_canvas_msgs::Annotation);
   empty->pose.pose.pose.orientation.w = 1.0;  // Avoid non-normalized quaternions
+
+  // Update GUI
   annot2widgets(empty);
   hideCurrentAnnot();
+
+  ui_->updateButton->setEnabled(false);
+  ui_->editMsgButton->setEnabled(false);
+  ui_->delAnnButton->setEnabled(false);
+  ui_->saveAnnButton->setEnabled(true);
+  ui_->pickColorButton->setEnabled(false);
+
+  changes_saved_ = false;
 }
 
 void RVizPluginEditor::saveButtonClicked()
 {
+  ROS_DEBUG("Save annotation");
+
   if (!current_annot_ != ! current_data_)
   {
     // XOR; this should not happen, as the save button should be disabled in this case!
@@ -254,14 +266,13 @@ void RVizPluginEditor::saveButtonClicked()
     assert(current_data_);
     return;
   }
-  ROS_DEBUG("Save annotation");
 
   if (current_annot_ && current_data_)
   {
     // Only apply for the 1st valid case
     ui_->delAnnButton->setEnabled(true);
 
-    // TODO: replace by an "update" method; and provide feedback to user in case of failure
+    // TODO: replace by an "update" method; and provide feedback to user in case of failure  URGENT -->  creates a problem now!!!
     worlds_list_->annotations_->del(current_annot_->id);
     if (worlds_list_->annotations_->add(*current_annot_, *current_data_) == false)
     {
@@ -272,6 +283,7 @@ void RVizPluginEditor::saveButtonClicked()
 
   // The rest apply for both
   ui_->saveAnnButton->setEnabled(false);
+  changes_saved_ = true;
 
   if (worlds_list_->annotations_->save() == false)
   {
@@ -293,18 +305,18 @@ void RVizPluginEditor::annsTreeDoubleClicked(QTreeWidgetItem *item, int column)
 
 void RVizPluginEditor::worldSelected(QTreeWidgetItem *item, int column)
 {
-  // Check that user is not selecting again the current world
   int world_index = ui_->annsTreeWidget->indexOfTopLevelItem(item);
+  ROS_DEBUG("World %d selected (%s)", world_index, worlds_list_->getName(world_index).c_str());
+
+  // Check that user is not selecting again the current world
   if (world_index == worlds_list_->getCurrent())
     return;
-
-  ROS_DEBUG("World %d selected (%s)", world_index, worlds_list_->getName(world_index).c_str());
-  ui_->newAnnButton->setEnabled(true);
 
   // Change world resets current annotation, so confirm that user want to discard changes (if any)
   if (discardCurrentChanges() == false)
     return;
 
+  ui_->newAnnButton->setEnabled(true);
   worlds_list_->setCurrent(world_index);
   ui_->editAnnGroupBox->setTitle(tr("Edit annotations for world '%1'")
                                  .arg(worlds_list_->getName(world_index).c_str()));
@@ -315,6 +327,8 @@ void RVizPluginEditor::worldSelected(QTreeWidgetItem *item, int column)
 
   world_canvas_msgs::Annotation::Ptr empty(new world_canvas_msgs::Annotation);
   empty->pose.pose.pose.orientation.w = 1.0;  // Avoid non-normalized quaternions
+
+  // Update GUI
   annot2widgets(empty);
   hideCurrentAnnot();
 
@@ -323,6 +337,7 @@ void RVizPluginEditor::worldSelected(QTreeWidgetItem *item, int column)
   ui_->delAnnButton->setEnabled(false);
   ui_->saveAnnButton->setEnabled(false);
   ui_->pickColorButton->setEnabled(false);
+  changes_saved_ = true;
 }
 
 void RVizPluginEditor::annotSelected(QTreeWidgetItem *item, int column)
@@ -334,11 +349,16 @@ void RVizPluginEditor::annotSelected(QTreeWidgetItem *item, int column)
   if (current_annot_ && (current_annot_->id.uuid == worlds_list_->annotations_->at(annot_index).id.uuid))
     return;
 
+  // Choose another annotation resets current one, so confirm that user want to discard changes (if any)
+  if (discardCurrentChanges() == false)
+    return;
+
   current_annot_.reset(new world_canvas_msgs::Annotation);
   *current_annot_ = worlds_list_->annotations_->at(annot_index);
   current_data_.reset(new world_canvas_msgs::AnnotationData);
   *current_data_ = worlds_list_->annotations_->getData(*current_annot_);
 
+  // Update GUI
   annot2widgets(current_annot_);
   showCurrentAnnot();
 
@@ -347,6 +367,7 @@ void RVizPluginEditor::annotSelected(QTreeWidgetItem *item, int column)
   ui_->delAnnButton->setEnabled(true);
   ui_->saveAnnButton->setEnabled(false);
   ui_->pickColorButton->setEnabled(true);
+  changes_saved_ = true;
 }
 
 void RVizPluginEditor::pickColorClicked()
@@ -365,6 +386,8 @@ void RVizPluginEditor::pickColorClicked()
 
 void RVizPluginEditor::widgets2annot(world_canvas_msgs::Annotation::Ptr annot)
 {
+  assert(annot);
+
   annot->name = ui_->nameLineEdit->text().toStdString();
   annot->type = ui_->typeLineEdit->text().toStdString();
 
@@ -428,6 +451,8 @@ void RVizPluginEditor::widgets2annot(world_canvas_msgs::Annotation::Ptr annot)
 
 void RVizPluginEditor::annot2widgets(world_canvas_msgs::Annotation::Ptr annot)
 {
+  assert(annot);
+
   ui_->nameLineEdit->setText(annot->name.c_str());
   ui_->typeLineEdit->setText(annot->type.c_str());
 
@@ -480,7 +505,7 @@ void RVizPluginEditor::annot2widgets(world_canvas_msgs::Annotation::Ptr annot)
 
 bool RVizPluginEditor::discardCurrentChanges()
 {
-  if (! current_annot_ || ! ui_->saveAnnButton->isEnabled()) // no current annotation or already saved
+  if (! current_annot_ || changes_saved_) // no current annotation or already saved
     return true;
 
   int ret = QMessageBox::warning(this, tr("Annotations Editor"),

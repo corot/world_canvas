@@ -98,6 +98,7 @@ protected:
   boost::shared_ptr<QProcess>   ext_process_;
   boost::shared_ptr<WorldsList> worlds_list_;
 
+  bool                               changes_saved_;
   QColor                             current_color_;
   world_canvas_msgs::Annotation::Ptr current_annot_;
   world_canvas_msgs::AnnotationData::Ptr current_data_;
