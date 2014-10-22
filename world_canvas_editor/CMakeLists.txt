@@ -6,7 +6,7 @@ catkin_package()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
-include_directories(${catkin_INCLUDE_DIRS} ${QT_INCLUDE_DIR})
+include_directories(${catkin_INCLUDE_DIRS} ${QT_INCLUDE_DIR} src)
 link_directories(${catkin_LIBRARY_DIRS})
 
 ## This package includes Qt widgets, so we must include Qt like so:

@@ -24,7 +24,7 @@
    </property>
    <layout class="QVBoxLayout" name="verticalLayout_10">
     <item>
-     <widget class="QTreeWidget" name="annsTreeWidget">
+     <widget class="wcf::WorldsList" name="annsTreeWidget">
       <property name="allColumnsShowFocus">
        <bool>false</bool>
       </property>
@@ -539,6 +539,13 @@
    </layout>
   </widget>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>wcf::WorldsList</class>
+   <extends>QTreeWidget</extends>
+   <header>worlds_list.hpp</header>
+  </customwidget>
+ </customwidgets>
  <tabstops>
   <tabstop>annsTreeWidget</tabstop>
   <tabstop>newAnnButton</tabstop>

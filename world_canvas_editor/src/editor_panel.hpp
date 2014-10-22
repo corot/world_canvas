@@ -33,7 +33,9 @@
 
 #include <rviz/panel.h>
 
-#include "worlds_list.hpp"
+#include "annotations.hpp"
+
+#include "ui_editor_panel.h"
 
 namespace Ui
 {
@@ -82,9 +84,8 @@ public Q_SLOTS:
   void delButtonClicked();
   void saveButtonClicked();
   void pickColorClicked();
-  void annsTreeDoubleClicked(QTreeWidgetItem *item, int column);
-  void worldSelected(QTreeWidgetItem *item, int column);
-  void annotSelected(QTreeWidgetItem *item, int column);
+  void worldSelected(int index);
+  void annotSelected(int index);
 
   // Here we declare some internal slots.
 protected Q_SLOTS:

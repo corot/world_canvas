@@ -7,21 +7,26 @@
 
 #include <ros/ros.h>
 
+#include <QPoint>
+#include <QTreeWidget>
+
 #include <world_canvas_client_cpp/world_collection.hpp>
 
-#include "annotations.hpp"
 
-
-class QTreeWidget;
+class QMenu;
+class QAction;
+class AnnotationsList;
 
 
 namespace wcf
 {
 
-class WorldsList : public WorldCollection
+class WorldsList : public QTreeWidget, WorldCollection
 {
+Q_OBJECT
+
 public:
-  WorldsList(const std::string& srv_namespace, QTreeWidget* tree_widget);
+  WorldsList(QWidget* parent);
 
   void updateWidget();
   void setCurrent(int index);
@@ -30,9 +35,22 @@ public:
 
   boost::shared_ptr<AnnotationsList> annotations_;
 
+Q_SIGNALS:
+  void worldSelected(int index);
+  void annotSelected(int index);
+
 private:
   int        current_world_;
-  QTreeWidget* tree_widget_;
+  int       world_to_clone_;
+  QMenu*      context_menu_;
+  QAction*   act_new_world_;
+  QAction* act_clone_world_;
+
+private Q_SLOTS:
+  void contextMenuRequested(QPoint point);
+  void treeDoubleClicked(QTreeWidgetItem *item, int column);
+  void newWorld();
+  void cloneWorld();
 };
 
 } // namespace wcf

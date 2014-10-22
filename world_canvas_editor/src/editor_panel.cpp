@@ -41,8 +41,6 @@
 
 #include "editor_panel.hpp"
 
-#include "ui_editor_panel.h"
-
 
 namespace wcf
 {
@@ -61,14 +59,12 @@ RVizPluginEditor::RVizPluginEditor(QWidget* parent)
   connect( ui_->saveAnnButton, SIGNAL( clicked() ), this, SLOT( saveButtonClicked() ));
   connect( ui_->pickColorButton, SIGNAL( clicked() ), this, SLOT( pickColorClicked() ));
 
-  // connect other signals to slots
-  connect( ui_->annsTreeWidget, SIGNAL( itemDoubleClicked(QTreeWidgetItem *, int)),
-           this, SLOT( annsTreeDoubleClicked(QTreeWidgetItem *, int) ));
+  // Store worlds and annotations tree widget as a private attribute for easy access
+  worlds_list_.reset(ui_->annsTreeWidget);
 
-  // Configure worlds and annotations tree widget with wider columns
-  worlds_list_.reset(new WorldsList("", ui_->annsTreeWidget));
-  ui_->annsTreeWidget->header()->resizeSection(0, 200);
-  ui_->annsTreeWidget->header()->resizeSection(1, 200);
+  // Connect world/annotation selection signals to slots here
+  connect( worlds_list_.get(), SIGNAL( worldSelected(int) ), this, SLOT( worldSelected(int) ));
+  connect( worlds_list_.get(), SIGNAL( annotSelected(int) ), this, SLOT( annotSelected(int) ));
 
   // Manually build the shape combo so I can get custom values according to Annotation msg
   ui_->shapeComboBox->addItem("CUBE", visualization_msgs::Marker::CUBE);
@@ -303,25 +299,12 @@ void RVizPluginEditor::saveButtonClicked()
   }
 }
 
-void RVizPluginEditor::annsTreeDoubleClicked(QTreeWidgetItem *item, int column)
+void RVizPluginEditor::worldSelected(int index)
 {
-  if (item->parent() == NULL)
-  {
-    worldSelected(item, column);
-  }
-  else
-  {
-    annotSelected(item, column);
-  }
-}
-
-void RVizPluginEditor::worldSelected(QTreeWidgetItem *item, int column)
-{
-  int world_index = ui_->annsTreeWidget->indexOfTopLevelItem(item);
-  ROS_DEBUG("World %d selected (%s)", world_index, worlds_list_->getName(world_index).c_str());
+  ROS_DEBUG("World %d selected (%s)", index, worlds_list_->getName(index).c_str());
 
   // Check that user is not selecting again the current world
-  if (world_index == worlds_list_->getCurrent())
+  if (index == worlds_list_->getCurrent())
     return;
 
   // Change world resets current annotation, so confirm that user want to discard changes (if any)
@@ -329,9 +312,9 @@ void RVizPluginEditor::worldSelected(QTreeWidgetItem *item, int column)
     return;
 
   ui_->newAnnButton->setEnabled(true);
-  worlds_list_->setCurrent(world_index);
+  worlds_list_->setCurrent(index);
   ui_->editAnnGroupBox->setTitle(tr("Edit annotations for world '%1'")
-                                 .arg(worlds_list_->getName(world_index).c_str()));
+                                 .arg(worlds_list_->getName(index).c_str()));
 
   // Reset current annotation and make widgets empty
   current_annot_.reset();
@@ -352,13 +335,12 @@ void RVizPluginEditor::worldSelected(QTreeWidgetItem *item, int column)
   changes_saved_ = true;
 }
 
-void RVizPluginEditor::annotSelected(QTreeWidgetItem *item, int column)
+void RVizPluginEditor::annotSelected(int index)
 {
-  int annot_index = item->parent()->indexOfChild(item);
-  ROS_DEBUG("Annotation %d selected", annot_index);
+  ROS_DEBUG("Annotation %d selected", index);
 
   // Check that user is not selecting again the current annotation
-  if (current_annot_ && (current_annot_->id.uuid == worlds_list_->annotations_->at(annot_index).id.uuid))
+  if (current_annot_ && (current_annot_->id.uuid == worlds_list_->annotations_->at(index).id.uuid))
     return;
 
   // Choose another annotation resets current one, so confirm that user want to discard changes (if any)
@@ -366,7 +348,7 @@ void RVizPluginEditor::annotSelected(QTreeWidgetItem *item, int column)
     return;
 
   current_annot_.reset(new world_canvas_msgs::Annotation);
-  *current_annot_ = worlds_list_->annotations_->at(annot_index);
+  *current_annot_ = worlds_list_->annotations_->at(index);
   current_data_.reset(new world_canvas_msgs::AnnotationData);
   *current_data_ = worlds_list_->annotations_->getData(*current_annot_);
 
