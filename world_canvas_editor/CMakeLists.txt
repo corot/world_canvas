@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(world_canvas_editor)
-find_package(catkin REQUIRED COMPONENTS rviz roscpp topic_tools world_canvas_msgs world_canvas_client_cpp unique_id uuid_msgs yocs_math_toolkit)
+find_package(catkin REQUIRED COMPONENTS rviz roscpp topic_tools world_canvas_msgs world_canvas_client_cpp yocs_math_toolkit)
 
 catkin_package()
 
@@ -50,7 +50,7 @@ add_library(${PROJECT_NAME} ${SOURCE_FILES} ${MOC_SOURCES} ${UIC_FILES})
 ## catkin has included.
 target_link_libraries(${PROJECT_NAME} ${QT_LIBRARIES} ${catkin_LIBRARIES})
 
-add_dependencies(${PROJECT_NAME} uuid_msgs_gencpp world_canvas_msgs_gencpp)
+add_dependencies(${PROJECT_NAME} world_canvas_msgs_gencpp)
 
 ## Install rules
 

@@ -36,7 +36,6 @@
 #include <QColorDialog>
 
 #include <yocs_math_toolkit/geometry.hpp>
-#include <world_canvas_client_cpp/unique_id.hpp>
 #include <world_canvas_msgs/EditAnnotationsData.h>
 
 #include "editor_panel.hpp"
@@ -227,7 +226,7 @@ void RVizPluginEditor::delButtonClicked()
   if (ret != QMessageBox::Yes)
     return;
 
-  worlds_list_->annotations_->remove(current_annot_->id);
+  worlds_list_->annotations_->remove(*current_annot_);
 
   // Reset current annotation and make widgets empty
   current_annot_.reset();

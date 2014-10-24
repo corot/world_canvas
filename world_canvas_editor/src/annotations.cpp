@@ -89,9 +89,9 @@ bool AnnotationsList::update(const world_canvas_msgs::Annotation& annotation,
   return false;
 }
 
-bool AnnotationsList::remove(const uuid_msgs::UniqueID& id)
+bool AnnotationsList::remove(const world_canvas_msgs::Annotation& annotation)
 {
-  if (AnnotationCollection::remove(id) == true)
+  if (AnnotationCollection::remove(annotation.id) == true)
   {
     // Reflect changes on the tree widget
     assert(tree_item_);
