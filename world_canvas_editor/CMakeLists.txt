@@ -6,7 +6,7 @@ catkin_package()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
-include_directories(${catkin_INCLUDE_DIRS} ${QT_INCLUDE_DIR} src)
+include_directories(${catkin_INCLUDE_DIRS} ${QT_INCLUDE_DIR} include)
 link_directories(${catkin_LIBRARY_DIRS})
 
 ## This package includes Qt widgets, so we must include Qt like so:
@@ -20,9 +20,9 @@ add_definitions(-DQT_NO_KEYWORDS)
 ## Here we specify which header files need to be run through "moc",
 ## Qt's meta-object compiler.
 qt4_wrap_cpp(MOC_FILES
-  src/annotations.hpp
-  src/worlds_list.hpp
-  src/editor_panel.hpp
+  include/world_canvas_editor/annotations.hpp
+  include/world_canvas_editor/worlds_list.hpp
+  include/world_canvas_editor/editor_panel.hpp
 )
 
 qt4_wrap_ui(UIC_FILES

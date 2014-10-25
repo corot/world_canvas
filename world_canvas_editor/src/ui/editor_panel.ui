@@ -543,7 +543,7 @@
   <customwidget>
    <class>wcf::WorldsList</class>
    <extends>QTreeWidget</extends>
-   <header>worlds_list.hpp</header>
+   <header>world_canvas_editor/worlds_list.hpp</header>
   </customwidget>
  </customwidgets>
  <tabstops>

@@ -16,8 +16,8 @@
 
 #include <world_canvas_msgs/ListWorlds.h>
 
-#include "annotations.hpp"
-#include "worlds_list.hpp"
+#include "world_canvas_editor/annotations.hpp"
+#include "world_canvas_editor/worlds_list.hpp"
 
 namespace wcf
 {

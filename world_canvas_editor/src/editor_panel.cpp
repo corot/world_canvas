@@ -38,8 +38,7 @@
 #include <yocs_math_toolkit/geometry.hpp>
 #include <world_canvas_msgs/EditAnnotationsData.h>
 
-#include "editor_panel.hpp"
-
+#include "world_canvas_editor/editor_panel.hpp"
 
 namespace wcf
 {
