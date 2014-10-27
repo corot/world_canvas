@@ -23,7 +23,7 @@ def publish(anns, data):
     for a, d in zip(anns, data):
         
         # Columns
-        object = deserializeMsg(d.data, Column)
+        object = deserialize_msg(d.data, Column)
         column_list.obstacles.append(object)
         
         # Markers

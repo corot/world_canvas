@@ -86,15 +86,15 @@ class MapManager:
         self.map_collection.ensure_index('uuid', unique=True)
         
         # Set up map management services
-        self.list_maps_srv   = rospy.Service('list_maps',   ListMaps,   self.listMaps)
-        self.publish_map_srv = rospy.Service('publish_map', PublishMap, self.publishMap)
-        self.delete_map_srv  = rospy.Service('delete_map',  DeleteMap,  self.deleteMap)
-        self.rename_map_srv  = rospy.Service('rename_map',  RenameMap,  self.renameMap)
-        self.save_map_srv    = rospy.Service('save_map',    SaveMap,    self.saveMap)
-        self.dynamic_map_srv = rospy.Service('dynamic_map', GetMap,     self.dynamicMap)
+        self.list_maps_srv   = rospy.Service('list_maps',   ListMaps,   self.list_maps)
+        self.publish_map_srv = rospy.Service('publish_map', PublishMap, self.publish_map)
+        self.delete_map_srv  = rospy.Service('delete_map',  DeleteMap,  self.delete_map)
+        self.rename_map_srv  = rospy.Service('rename_map',  RenameMap,  self.rename_map)
+        self.save_map_srv    = rospy.Service('save_map',    SaveMap,    self.save_map)
+        self.dynamic_map_srv = rospy.Service('dynamic_map', GetMap,     self.dynamic_map)
 
         # Set up map subscriber for saving under-construction maps
-        self.map_subscriber = rospy.Subscriber('map', OccupancyGrid, self.onMapReceived, queue_size=1)
+        self.map_subscriber = rospy.Subscriber('map', OccupancyGrid, self.on_map_received, queue_size=1)
 
         # Use the current ROS time in seconds as the session id for saved maps
         self.rec_session = RecSession(self)
@@ -104,7 +104,7 @@ class MapManager:
 
         try:
             self.last_map = rospy.get_param('~last_map_id')
-            map = self.lookupMap(self.last_map)
+            map = self.lookup_map(self.last_map)
             if map is None:
                 rospy.logerr("Invalid last_map_id: %s" % str(self.last_map))
             else:
@@ -119,7 +119,7 @@ class MapManager:
     # Services callbacks
     ##########################################################################
 
-    def listMaps(self, request):
+    def list_maps(self, request):
         rospy.logdebug("Service call : list_maps");
         
         response = ListMapsResponse()
@@ -146,7 +146,7 @@ class MapManager:
         return response
 
 
-    def lookupMap(self, uuid):
+    def lookup_map(self, uuid):
         rospy.logdebug("Load map %s" % uuid)
         matching_maps = self.map_collection.query({'uuid': {'$in': [uuid]}})
         try:
@@ -156,11 +156,11 @@ class MapManager:
             return None
 
 
-    def publishMap(self, request):
+    def publish_map(self, request):
         rospy.logdebug("Service call : publish_map %s" % request.map_id)
         response = PublishMapResponse()
 
-        map = self.lookupMap(request.map_id)
+        map = self.lookup_map(request.map_id)
         if map is None:
             rospy.logerr("Invalid map id: %s" % str(request.map_id))
             return None
@@ -171,7 +171,7 @@ class MapManager:
 
         return response
         
-    def deleteMap(self, request):
+    def delete_map(self, request):
         rospy.logdebug("Service call : delete map %s" % request.map_id)
         response = DeleteMapResponse()
         
@@ -185,11 +185,11 @@ class MapManager:
 
         return response
 
-    def renameMap(self, request):
+    def rename_map(self, request):
         rospy.logdebug("Service call : rename map %s as %s" % (request.map_id, request.new_name))
         response = RenameMapResponse()
 
-        map_metadata = self.getMetadata(request.map_id)
+        map_metadata = self.get_metadata(request.map_id)
         if map_metadata is None:
             return None
 
@@ -197,21 +197,21 @@ class MapManager:
         self.map_collection.update(map_metadata)
         return response  
 
-    def dynamicMap(self, request):
+    def dynamic_map(self, request):
         rospy.logdebug("Service call : get last map (%s)" % self.last_map)
         response = GetMapResponse()
 
         if self.last_map is None:
             return None
 
-        map = self.lookupMap(self.last_map)
+        map = self.lookup_map(self.last_map)
         if map is None:
             return None
 
         response.map = map;
         return response
 
-    def onMapReceived(self, map_msg):
+    def on_map_received(self, map_msg):
         self.rec_session.map = map_msg
 
         if not self.rec_session.auto_save:
@@ -219,7 +219,7 @@ class MapManager:
         else:
             self.rec_session.save()
 
-    def saveMap(self, request):
+    def save_map(self, request):
         rospy.logdebug("Service call : save current map as %s" % request.map_name)
         response = SaveMapResponse()
 
@@ -228,7 +228,7 @@ class MapManager:
 
         return response
 
-    def getMetadata(self, uuid):
+    def get_metadata(self, uuid):
         # Get metadata for the given map id
         matching_maps = self.map_collection.query({'uuid': {'$in': [uuid]}}, True)
         try:
@@ -270,7 +270,7 @@ class RecSession:
         if not self.map_saved:
             try:
                 self.parent.map_collection.insert(self.map, self.metadata, safe=True)
-                self.metadata = self.parent.getMetadata(self.metadata['uuid'])
+                self.metadata = self.parent.get_metadata(self.metadata['uuid'])
                 if self.metadata is None:
                     # This should not happen, obviously
                     rospy.logerr("Map %s not found just after inserting it???" % request.map_id)

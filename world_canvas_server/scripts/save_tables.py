@@ -64,7 +64,7 @@ def read(file):
         data = AnnotationData()
         data.id = ann.data_id
         data.type = ann.type
-        data.data = serializeMsg(object)
+        data.data = serialize_msg(object)
         
         data_list.append(data)
 

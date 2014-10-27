@@ -71,27 +71,27 @@ class AnnotationsServer:
         
         # Set up services
         self.get_anns_srv = \
-            rospy.Service('get_annotations',      GetAnnotations,     self.getAnnotations)
+            rospy.Service('get_annotations',      GetAnnotations,     self.get_annotations)
         self.get_data_srv = \
-            rospy.Service('get_annotations_data', GetAnnotationsData, self.getAnnotationsData)
+            rospy.Service('get_annotations_data', GetAnnotationsData, self.get_annotations_data)
         self.pub_data_srv = \
-            rospy.Service('pub_annotations_data', PubAnnotationsData, self.pubAnnotationsData)
+            rospy.Service('pub_annotations_data', PubAnnotationsData, self.pub_annotations_data)
 
         self.del_anns_srv = \
-            rospy.Service('delete_annotations',    DeleteAnnotations,   self.deleteAnnotations)
+            rospy.Service('delete_annotations',    DeleteAnnotations,   self.delete_annotations)
         self.save_data_srv = \
-            rospy.Service('save_annotations_data', SaveAnnotationsData, self.saveAnnotationsData)
+            rospy.Service('save_annotations_data', SaveAnnotationsData, self.save_annotations_data)
 
         self.list_worlds_srv = \
-            rospy.Service('list_worlds',      ListWorlds,      self.listWorlds)
+            rospy.Service('list_worlds',      ListWorlds,      self.list_worlds)
 
         self.set_keyword_srv = \
-            rospy.Service('set_keyword',      SetKeyword,      self.setKeyword)
+            rospy.Service('set_keyword',      SetKeyword,      self.set_keyword)
         self.set_related_srv = \
-            rospy.Service('set_relationship', SetRelationship, self.setRelationship)
+            rospy.Service('set_relationship', SetRelationship, self.set_relationship)
 
         self.reset_database_srv = \
-            rospy.Service('reset_database', ResetDatabase, self.resetDatabase)
+            rospy.Service('reset_database', ResetDatabase, self.reset_database)
 
         # Configure services for import from/export to YAML file
         self.yaml_db = YAMLDatabase(self.anns_collection, self.data_collection)
@@ -107,7 +107,7 @@ class AnnotationsServer:
     # Services callbacks
     ##########################################################################
 
-    def getAnnotations(self, request):
+    def get_annotations(self, request):
 
         response = GetAnnotationsResponse()
         
@@ -139,7 +139,7 @@ class AnnotationsServer:
             except StopIteration:
                 if (i == 0):
                     rospy.loginfo("No annotations found")
-                    return self.serviceSuccess(response)  # we don't consider this an error
+                    return self.service_success(response)  # we don't consider this an error
                 break
     
     
@@ -156,13 +156,13 @@ class AnnotationsServer:
 #         response.data        = matching_data
     
         rospy.loginfo("%lu annotations loaded" % i)
-        return self.serviceSuccess(response)
+        return self.service_success(response)
         
-    def getAnnotationsData(self, request):
+    def get_annotations_data(self, request):
         response = GetAnnotationsDataResponse()
         
         if len(request.annotation_ids) == 0:
-            return self.serviceError(response, "No annotation ids on request; you must be kidding!")
+            return self.service_error(response, "No annotation ids on request; you must be kidding!")
         
         query = {'id': {'$in': [unique_id.toHexString(id) for id in request.annotation_ids]}}                
         matching_data = self.data_collection.query(query)
@@ -181,13 +181,13 @@ class AnnotationsServer:
                     rospy.loginfo("%d objects found for %d annotations" % (i, len(request.annotation_ids)))
                 break
 
-        return self.serviceSuccess(response)
+        return self.service_success(response)
         
-    def pubAnnotationsData(self, request):
+    def pub_annotations_data(self, request):
         response = PubAnnotationsDataResponse()
         
         if len(request.annotation_ids) == 0:
-            return self.serviceError(response, "No annotation ids on request; you must be kidding!")
+            return self.service_error(response, "No annotation ids on request; you must be kidding!")
 
         # Verify that all annotations on list belong to the same type (as we will publish them in
         # the same topic) and that at least one is really present in database
@@ -200,14 +200,14 @@ class AnnotationsServer:
                 if 'topic_type' not in locals():
                     topic_type = ann_md['type']
                 elif topic_type != ann_md['type']:
-                    return self.serviceError(response, "Cannot publish annotations of different types (%s, %s)"
-                                             % (topic_type, ann_md['type']))
+                    return self.service_error(response, "Cannot publish annotations of different types (%s, %s)"
+                                              % (topic_type, ann_md['type']))
             except StopIteration:
                 break
 
         if 'topic_type' not in locals():
-            return self.serviceError(response, "None of the %d requested annotations was found in database"
-                                     % len(request.annotation_ids))
+            return self.service_error(response, "None of the %d requested annotations was found in database"
+                                      % len(request.annotation_ids))
 
         # Keep the class of the messages to be published; we need it later when deserializing them
         msg_class = roslib.message.get_message_class(topic_type)
@@ -215,7 +215,7 @@ class AnnotationsServer:
             # This happens if the topic type is wrong or not known for the server (i.e. the package describing it is
             # absent from ROS_PACKAGE_PATH). The second condition is a tricky one, as is a big known limitation of WCF
             # (https://github.com/corot/world_canvas/issues/5)
-            return self.serviceError(response, "Topic type %s definition not found" % topic_type)
+            return self.service_error(response, "Topic type %s definition not found" % topic_type)
         
         # Advertise a topic with message type request.topic_type if we will publish results as a list (note that we
         # ignore list's type) or use the retrieved annotations type otherwise (we have verified that it's unique) 
@@ -223,8 +223,8 @@ class AnnotationsServer:
             topic_type = request.topic_type
             topic_class = roslib.message.get_message_class(topic_type)
             if topic_class is None:
-                # Same comment as in previous serviceError call applies here
-                return self.serviceError(response, "Topic type %s definition not found" % topic_type)
+                # Same comment as in previous service_error call applies here
+                return self.service_error(response, "Topic type %s definition not found" % topic_type)
         else:
             topic_class = msg_class
 
@@ -241,7 +241,7 @@ class AnnotationsServer:
             try:
                 # Get annotation data and deserialize data field to get the original message of type request.topic_type
                 ann_data = matching_data.next()[0]
-                ann_msg = deserializeMsg(ann_data.data, msg_class)
+                ann_msg = deserialize_msg(ann_data.data, msg_class)
                 if request.pub_as_list:
                     object_list.append(ann_msg)
                 else:
@@ -254,7 +254,7 @@ class AnnotationsServer:
             except StopIteration:
                 if (i == 0):
                     # This must be an error cause we verified before that at least one annotation is present!
-                    return self.serviceError(response, "No data found for %d requested annotations"
+                    return self.service_error(response, "No data found for %d requested annotations"
                                               % len(request.annotation_ids))
                 if i != len(request.annotation_ids):
                     # Don't need to be an error, as multiple annotations can reference the same data
@@ -265,9 +265,9 @@ class AnnotationsServer:
                     pub.publish(object_list)
                 break
 
-        return self.serviceSuccess(response)
+        return self.service_success(response)
 
-    def deleteAnnotations(self, request):
+    def delete_annotations(self, request):
         '''
           Deletes the given annotations and its data from database.
 
@@ -276,7 +276,7 @@ class AnnotationsServer:
         response = DeleteAnnotationsResponse()
         
         if len(request.annotations) == 0:
-            return self.serviceError(response, "No annotation ids on request; you must be kidding!")
+            return self.service_error(response, "No annotation ids on request; you must be kidding!")
         
         annot_data_ids = [a.data_id for a in request.annotations]
         query = {'id': {'$in': [unique_id.toHexString(id) for id in annot_data_ids]}}
@@ -296,9 +296,9 @@ class AnnotationsServer:
             rospy.logwarn("Requested (%d) and deleted (%d) annotations counts doesn't match"
                           % (len(annotation_ids), removed))
         
-        return self.serviceSuccess(response)
+        return self.service_success(response)
 
-    def saveAnnotationsData(self, request):
+    def save_annotations_data(self, request):
         '''
           Legacy method kept for debug purposes: saves together annotations and its data
           assuming a 1-1 relationship.
@@ -336,9 +336,9 @@ class AnnotationsServer:
             self.data_collection.insert(data, data_metadata)
 
         rospy.loginfo("%lu annotations saved" % len(request.annotations))
-        return self.serviceSuccess(response)
+        return self.service_success(response)
 
-    def listWorlds(self, request):
+    def list_worlds(self, request):
         response = ListWorldsResponse()
         
         # Query metadata for all annotations in database, shorted by
@@ -354,9 +354,9 @@ class AnnotationsServer:
             except StopIteration:
                 return response
 
-    def setKeyword(self, request):
+    def set_keyword(self, request):
         response = SetKeywordResponse()
-        annot_id, metadata = self.getMetadata(request.id)
+        annot_id, metadata = self.get_metadata(request.id)
         
         if metadata is None:
             response.message = "Annotation not found" 
@@ -364,9 +364,9 @@ class AnnotationsServer:
             return response
 
         if request.action == SetKeywordRequest.ADD:
-            return self.addElement(annot_id, request.keyword, metadata, 'keywords', response)
+            return self.add_element(annot_id, request.keyword, metadata, 'keywords', response)
         elif request.action == SetKeywordRequest.DEL:
-            return self.delElement(annot_id, request.keyword, metadata, 'keywords', response)
+            return self.del_element(annot_id, request.keyword, metadata, 'keywords', response)
         else:
             # Sanity check against crazy service clients
             rospy.logerr("Invalid action %d", request.action)
@@ -375,9 +375,9 @@ class AnnotationsServer:
             return response
 
 
-    def setRelationship(self, request):
+    def set_relationship(self, request):
         response = SetRelationshipResponse()
-        annot_id, metadata = self.getMetadata(request.id)
+        annot_id, metadata = self.get_metadata(request.id)
         relat_id = unique_id.toHexString(request.relationship)
         
         if metadata is None:
@@ -386,9 +386,9 @@ class AnnotationsServer:
             return response
 
         if request.action == SetRelationshipRequest.ADD:
-            return self.addElement(annot_id, relat_id, metadata, 'relationships', response)
+            return self.add_element(annot_id, relat_id, metadata, 'relationships', response)
         elif request.action == SetRelationshipRequest.DEL:
-            return self.delElement(annot_id, relat_id, metadata, 'relationships', response)
+            return self.del_element(annot_id, relat_id, metadata, 'relationships', response)
         else:
             # Sanity check against crazy service clients
             rospy.logerr("Invalid action: %d" % request.action)
@@ -397,7 +397,7 @@ class AnnotationsServer:
             return response
 
 
-    def addElement(self, annot_id, element, metadata, md_field, response):
+    def add_element(self, annot_id, element, metadata, md_field, response):
 
         # Look on metadata for md_field field, for the target element
         field = metadata.get(md_field)
@@ -414,9 +414,9 @@ class AnnotationsServer:
             # Already present; nothing to do (not an error)
             rospy.loginfo("%s already set on %s for annotation %s" % (element, md_field, annot_id))
 
-        return self.serviceSuccess(response)
+        return self.service_success(response)
 
-    def delElement(self, annot_id, element, metadata, md_field, response):
+    def del_element(self, annot_id, element, metadata, md_field, response):
         # Look on metadata for md_field field, for the target element
         field = metadata.get(md_field)
 
@@ -438,23 +438,23 @@ class AnnotationsServer:
             self.anns_collection.update(metadata)
 
         # No error so return success
-        return self.serviceSuccess(response)
+        return self.service_success(response)
 
-    def resetDatabase(self, request):
+    def reset_database(self, request):
         # Clear existing database content
         self.world_collection.remove({})
         self.anns_collection.remove({})
         self.data_collection.remove({})
 
         # No error so return success
-        return self.serviceSuccess(ResetDatabaseResponse(), 'Database cleared!')
+        return self.service_success(ResetDatabaseResponse(), 'Database cleared!')
 
 
     ##########################################################################
     # Auxiliary methods
     ##########################################################################
 
-    def getMetadata(self, uuid):
+    def get_metadata(self, uuid):
         # Get metadata for the given annotation id
         annot_id = unique_id.toHexString(uuid)
         matching_anns = self.anns_collection.query({'id': {'$in': [annot_id]}}, True)
@@ -465,13 +465,13 @@ class AnnotationsServer:
             rospy.logwarn("Annotation %s not found" % annot_id)
             return annot_id, None
 
-    def serviceSuccess(self, response, message=None):
+    def service_success(self, response, message=None):
         if message is not None:
             rospy.loginfo(message)
         response.result = True
         return response
 
-    def serviceError(self, response, message):
+    def service_error(self, response, message):
         rospy.logerr(message)
         response.message = message
         response.result = False

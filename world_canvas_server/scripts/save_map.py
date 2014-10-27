@@ -49,7 +49,7 @@ def read(file):
     map = AnnotationData()
     map.id = ann.data_id
     map.type = ann.type
-    map.data = serializeMsg(object)
+    map.data = serialize_msg(object)
     
     return [ann], [map]  # return as lists, as is what expects save_annotations_data service
 

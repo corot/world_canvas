@@ -23,7 +23,7 @@ def publish(anns, data):
     for a, d in zip(anns, data):
         
         # AR markers
-        object = deserializeMsg(d.data, AlvarMarker)
+        object = deserialize_msg(d.data, AlvarMarker)
         ar_mk_list.markers.append(object)
         
         # Visual markers

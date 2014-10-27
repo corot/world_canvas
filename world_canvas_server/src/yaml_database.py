@@ -59,20 +59,20 @@ class YAMLDatabase:
         self.data_collection = data_collection
 
         # Set up services
-        self.import_srv = rospy.Service('yaml_import', YAMLImport, self.importFromYAML)
-        self.export_srv = rospy.Service('yaml_export', YAMLExport, self.exportToYAML)
+        self.import_srv = rospy.Service('yaml_import', YAMLImport, self.import_from_yaml)
+        self.export_srv = rospy.Service('yaml_export', YAMLExport, self.export_to_yaml)
 
     
     ##########################################################################
     # Services callbacks
     ##########################################################################
 
-    def importFromYAML(self, request):
+    def import_from_yaml(self, request):
 
         response = YAMLImportResponse()
         
         if not os.path.isfile(request.filename):
-            return self.serviceError(response, "File does not exist: %s" % (request.filename))
+            return self.service_error(response, "File does not exist: %s" % (request.filename))
 
         try:
             with open(request.filename, 'r') as f:
@@ -81,7 +81,7 @@ class YAMLDatabase:
                 if yaml_data is None:
                     raise yaml.YAMLError("Empty files not allowed")
         except yaml.YAMLError as e:
-            return self.serviceError(response, "Invalid YAML file: %s" % (str(e)))
+            return self.service_error(response, "Invalid YAML file: %s" % (str(e)))
     
         # Clear existing database content  TODO: flag to choose whether keep content
         self.anns_collection.remove({})
@@ -94,12 +94,12 @@ class YAMLDatabase:
             try:
                 anns_list = t['annotations']
             except KeyError as e:
-                return self.serviceError(response, "Invalid database file format: %s field not found" % str(e))
+                return self.service_error(response, "Invalid database file format: %s field not found" % str(e))
 
             if len(anns_list) == 0:
                 # Coherence check: there must be at least one annotation for database entry
-                return self.serviceError(response, "Invalid database file format: " \
-                                         "there must be at least one annotation for database entry")
+                return self.service_error(response, "Invalid database file format: " \
+                                          "there must be at least one annotation for database entry")
 
             for a in anns_list:
                 annotation = Annotation()
@@ -108,8 +108,8 @@ class YAMLDatabase:
 
                     if 'prev_data_id' in locals() and prev_data_id != annotation.data_id.uuid:
                         # Coherence check: all data_id fields must be equal between them and to data id
-                        return self.serviceError(response, "Invalid database file format: " \
-                                                 "data ids must be equal for annotations referencing the same data")
+                        return self.service_error(response, "Invalid database file format: " \
+                                                  "data ids must be equal for annotations referencing the same data")
 
                     prev_data_id = annotation.data_id.uuid
                     
@@ -140,16 +140,16 @@ class YAMLDatabase:
                     self.anns_collection.insert(annotation, metadata, safe=True)
                     
                 except (genpy.MessageException, genpy.message.SerializationError) as e:
-                    return self.serviceError(response, "Invalid annotation msg format: %s" % str(e))
+                    return self.service_error(response, "Invalid annotation msg format: %s" % str(e))
                 except Exception as e:
                     # Assume collection.insert raised this, as we set safe=True (typically a DuplicateKeyError)
-                    return self.serviceError(response, "Insert annotation failed: %s" % str(e))
+                    return self.service_error(response, "Insert annotation failed: %s" % str(e))
 
             # Annotation data, of message type annotation.type
             msg_class = roslib.message.get_message_class(annotation.type)
             if msg_class is None:
                 # annotation.type doesn't contain a known message type; we cannot insert on database
-                return self.serviceError(response, "Unknown message type: %s" % annotation.type)
+                return self.service_error(response, "Unknown message type: %s" % annotation.type)
             
             data = msg_class()
 
@@ -161,26 +161,26 @@ class YAMLDatabase:
                 data_msg = AnnotationData()
                 data_msg.id = annotation.data_id
                 data_msg.type = annotation.type
-                data_msg.data = serializeMsg(data)
+                data_msg.data = serialize_msg(data)
                 self.data_collection.insert(data_msg, data_metadata, safe=True)
             except (genpy.MessageException, genpy.message.SerializationError) as e:
                 # TODO: here I would have an incoherence in db: annotations without data;
                 # do mongo has rollback? do it manually? or just clear database content?
-                return self.serviceError(response, "Invalid %s msg format: %s" % (annotation.type, str(e)))
+                return self.service_error(response, "Invalid %s msg format: %s" % (annotation.type, str(e)))
             except KeyError as e:
-                return self.serviceError(response, "Invalid database file format: %s field not found" % str(e))
+                return self.service_error(response, "Invalid database file format: %s field not found" % str(e))
             except Exception as e:
                 # Assume collection.insert raised this, as we set safe=True (typically a DuplicateKeyError)
-                return self.serviceError(response, "Insert annotation data failed: %s" % str(e))
+                return self.service_error(response, "Insert annotation data failed: %s" % str(e))
 
 #               self.data_collection.remove({'id': {'$in': [unique_id.toHexString(annotation.id)]}})
 
             del prev_data_id # clear this so it doen't interfere with next element validation
 
-        return self.serviceSuccess(response, "%lu annotations imported on database" % len(yaml_data))
+        return self.service_success(response, "%lu annotations imported on database" % len(yaml_data))
 
 
-    def exportToYAML(self, request):
+    def export_to_yaml(self, request):
         response = YAMLExportResponse()
 
         # Query for all annotations in database, shorted by data id, so we can export packed with its referenced data
@@ -211,8 +211,8 @@ class YAMLDatabase:
                         try:
                             d = matching_data.next()[0]
                         except StopIteration:
-                            return self.serviceError(response, "Export to file failed: " \
-                                                     "No data found with id %s" % data_id_str)
+                            return self.service_error(response, "Export to file failed: " \
+                                                      "No data found with id %s" % data_id_str)
 
                         #  b) pack together with their referencing annotations in a dictionary
 
@@ -222,7 +222,7 @@ class YAMLDatabase:
                             rospy.logerr("Annotation type %s definition not found" % annotation.type)
                             return False
 
-                        data = deserializeMsg(d.data, data_class)
+                        data = deserialize_msg(d.data, data_class)
                         entry = dict(
                             annotations = [yaml.load(genpy.message.strify_message(a)) for a in annotations],
                             data = yaml.load(genpy.message.strify_message(data))
@@ -243,7 +243,7 @@ class YAMLDatabase:
 
                 if len(entries) == 0:
                     # we don't consider this an error
-                    return self.serviceSuccess(response, "Database is empty!; nothing to export")
+                    return self.service_success(response, "Database is empty!; nothing to export")
                 else:
                     # I must use default_flow_style = False so the resulting YAML looks nice, but then
                     # the bloody dumper writes lists with an element per-line, (with -), what makes the
@@ -258,22 +258,22 @@ class YAMLDatabase:
                     # due to a bug in pyyaml. See this ticket for details: http://pyyaml.org/ticket/359
                     dump = self.removeExp(dump)
                     f.write(dump)
-                    return self.serviceSuccess(response, "%lu annotations exported from database" % len(entries))
+                    return self.service_success(response, "%lu annotations exported from database" % len(entries))
         except Exception as e:
-            return self.serviceError(response, "Export to file failed: %s" % (str(e)))
+            return self.service_error(response, "Export to file failed: %s" % (str(e)))
 
     
     ##########################################################################
     # Auxiliary methods
     ##########################################################################
 
-    def serviceSuccess(self, response, message = None):
+    def service_success(self, response, message = None):
         if message is not None:
             rospy.loginfo(message)
         response.result = True
         return response
 
-    def serviceError(self, response, message):
+    def service_error(self, response, message):
         rospy.logerr(message)
         response.message = message
         response.result = False

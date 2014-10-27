@@ -31,7 +31,7 @@ def publish(anns, data, topic_name, topic_type, pub_as_list):
             rospy.logerr("Topic type %s definition not found" % topic_type)
             return False
         
-        object = deserializeMsg(d.data, type_class)
+        object = deserialize_msg(d.data, type_class)
         object_list.append(object)
 
         # Markers

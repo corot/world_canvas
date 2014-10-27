@@ -97,7 +97,7 @@ class MsgEditor(Plugin):
                 rospy.logerr(message)
                 raise Exception(message)
             try:
-                old_value = deserializeMsg(request.data.data, msg_class)
+                old_value = deserialize_msg(request.data.data, msg_class)
             except SerializationError as e:
                 message = "Deserialization failed: %s" % str(e)
                 rospy.logerr(message)
@@ -126,7 +126,7 @@ class MsgEditor(Plugin):
             response.data.type = self.message_info['type_name']
     
             try:
-                response.data.data = serializeMsg(self.message_info['instance'])
+                response.data.data = serialize_msg(self.message_info['instance'])
             except SerializationError as e:
                 message = "Serialization failed: %s" % str(e)
                 rospy.logerr(message)

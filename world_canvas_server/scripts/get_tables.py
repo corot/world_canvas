@@ -23,7 +23,7 @@ def publish(anns, data):
     for a, d in zip(anns, data):
         
         # Tables
-        object = deserializeMsg(d.data, Table)
+        object = deserialize_msg(d.data, Table)
         table_list.tables.append(object)
         
         # Markers

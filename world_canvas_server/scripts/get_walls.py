@@ -23,7 +23,7 @@ def publish(anns, data):
     for a, d in zip(anns, data):
         
         # Walls
-        object = deserializeMsg(d.data, Wall)
+        object = deserialize_msg(d.data, Wall)
         wall_list.obstacles.append(object)
         
         # Markers
