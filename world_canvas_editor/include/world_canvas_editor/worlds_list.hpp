@@ -46,6 +46,8 @@ private:
   QAction*   act_new_world_;
   QAction* act_clone_world_;
 
+  bool loadGeometricMap(const std::string& world_name);
+
 private Q_SLOTS:
   void contextMenuRequested(QPoint point);
   void treeDoubleClicked(QTreeWidgetItem *item, int column);

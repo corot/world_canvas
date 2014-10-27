@@ -12,10 +12,13 @@
 #include <QHeaderView>
 #include <QTreeWidgetItem>
 #include <QLineEdit>
+#include <QMessageBox>
+#include <QFileDialog>
 #include <QInputDialog>
 
 #include <world_canvas_msgs/ListWorlds.h>
 
+#include "world_canvas_editor/map_loader.hpp"
 #include "world_canvas_editor/annotations.hpp"
 #include "world_canvas_editor/worlds_list.hpp"
 
@@ -94,6 +97,13 @@ void WorldsList::newWorld()
   if (ok && !text.isEmpty())
   {
     world_names.push_back(text.toStdString());
+
+    // Ask user to provide a geometric map for the new world; we will go on even if he doesn't or
+    // if there's an error, but adding annotations blindly, without a reference would be horrible!
+    if (loadGeometricMap(text.toStdString()) == false)
+      ROS_WARN("We don't have a geometric map to show for the new world");
+
+    // Emit a signal to the main editor so he can handle the change of world
     Q_EMIT worldSelected(world_names.size() - 1);
   }
 }
@@ -120,6 +130,11 @@ void WorldsList::setCurrent(int index)
     updateWidget();
 
     this->setCurrentItem(this->topLevelItem(index));
+
+    // Request server to publish the geometric map for the selected world
+    annotations_->publish("map", "nav_msgs/OccupancyGrid", true, false);
+
+    // TODO: we should notify somehow if this world has no geometric map to show
   }
 }
 
@@ -140,6 +155,61 @@ void WorldsList::updateWidget()
       annotations_->updateWidget(item);
       item->setExpanded(true);
     }
+  }
+}
+
+bool WorldsList::loadGeometricMap(const std::string& world_name)
+{
+  QString fileName = QFileDialog::getOpenFileName(this, tr("Load Map"),
+                                                  "~", tr("Map descriptor (*.yaml)"));
+  if (fileName.isEmpty() == true)
+    return false;
+
+  try
+  {
+    nav_msgs::OccupancyGrid map;
+    MapLoader::load(fileName.toStdString(), map);
+
+    world_canvas_msgs::Annotation map_annot;
+    world_canvas_msgs::AnnotationData map_data;
+
+    map_annot.world = world_name;
+    map_annot.id = uuid::toMsg(uuid::fromRandom());
+    map_annot.data_id = uuid::toMsg(uuid::fromRandom());
+    map_annot.name = "2D map";
+    map_annot.type = "nav_msgs/OccupancyGrid";
+    map_annot.pose.header.frame_id = "/map";  // TODO  part of world????
+    map_annot.pose.pose.pose.orientation.w = 1.0;  // Avoid non-normalized quaternions
+    map_annot.shape = visualization_msgs::Marker::TEXT_VIEW_FACING; // reasonable default
+  //  map_annot.color.a = 0.5;  // Avoid a rather confusing invisible shape
+    map_data.id = map_annot.data_id;
+    map_data.type = map_annot.type;
+  //  map_data.data =
+
+    std::size_t size = ros::serialization::serializationLength(map);
+    if (size <= 0)
+      throw ros::Exception("Non-positive serialization length");
+
+    // we convert the message into a string because that is easy to sent back & forth with Python
+    // This is fine since C0x because &string[0] is guaranteed to point to a contiguous block of memory
+    map_data.data.resize(size + 4);
+    *reinterpret_cast<uint32_t*>(&map_data.data[0]) = size;
+    ros::serialization::OStream stream_arg(reinterpret_cast<uint8_t*>(&map_data.data[4]), size);
+    ros::serialization::serialize(stream_arg, map);
+
+    AnnotationCollection ac(world_name);
+    ac.add(map_annot, map_data);
+    if (ac.save() == false)
+      throw ros::Exception("Save map on database failed");
+
+    return true;
+  }
+  catch (ros::Exception& e)
+  {
+    QMessageBox::critical(this, tr("Annotations Editor"),
+                                tr("Load map failed:\n%s") + QString(e.what()),
+                                QMessageBox::Ok);
+    return false;
   }
 }
 

@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(world_canvas_editor)
-find_package(catkin REQUIRED COMPONENTS rviz roscpp topic_tools world_canvas_msgs world_canvas_client_cpp yocs_math_toolkit)
+find_package(catkin REQUIRED COMPONENTS rviz roscpp nav_msgs map_server topic_tools world_canvas_msgs world_canvas_client_cpp yocs_math_toolkit)
+
+# pkg-config support for yaml-cpp
+find_package(PkgConfig)
+pkg_search_module(yaml-cpp REQUIRED yaml-cpp)
 
 catkin_package()
 

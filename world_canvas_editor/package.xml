@@ -16,6 +16,9 @@
 
   <build_depend>rviz</build_depend>
   <build_depend>roscpp</build_depend>
+  <build_depend>nav_msgs</build_depend>
+  <build_depend>yaml-cpp</build_depend>
+  <build_depend>map_server</build_depend>
   <build_depend>topic_tools</build_depend>
   <build_depend>world_canvas_msgs</build_depend>
   <build_depend>world_canvas_client_cpp</build_depend>
@@ -23,6 +26,9 @@
 
   <run_depend>rviz</run_depend>
   <run_depend>roscpp</run_depend>
+  <run_depend>nav_msgs</run_depend>
+  <run_depend>yaml-cpp</run_depend>
+  <run_depend>map_server</run_depend>
   <run_depend>topic_tools</run_depend>
   <run_depend>world_canvas_msgs</run_depend>
   <run_depend>world_canvas_client_cpp</run_depend>
