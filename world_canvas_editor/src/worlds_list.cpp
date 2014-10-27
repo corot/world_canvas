@@ -103,7 +103,8 @@ void WorldsList::newWorld()
     if (loadGeometricMap(text.toStdString()) == false)
       ROS_WARN("We don't have a geometric map to show for the new world");
 
-    // Emit a signal to the main editor so he can handle the change of world
+    // Emit a signal to the main editor so he can handle the world switching; he will call-back
+    // in turn our setCurrent <world index> method to reflect changes on this widget
     Q_EMIT worldSelected(world_names.size() - 1);
   }
 }
@@ -160,6 +161,7 @@ void WorldsList::updateWidget()
 
 bool WorldsList::loadGeometricMap(const std::string& world_name)
 {
+  // Obtain a YAML map descriptor file path from the user
   QString fileName = QFileDialog::getOpenFileName(this, tr("Load Map"),
                                                   "~", tr("Map descriptor (*.yaml)"));
   if (fileName.isEmpty() == true)
@@ -167,9 +169,13 @@ bool WorldsList::loadGeometricMap(const std::string& world_name)
 
   try
   {
+    // Reuse code from the old good map_server package to load the descriptor and bitmap files
     nav_msgs::OccupancyGrid map;
     MapLoader::load(fileName.toStdString(), map);
 
+    // And create a single annotation collection to save the map on database; this indirect way
+    // can look weird, but allows us to handle adding a new world as if we where just switching
+    // between two existing
     world_canvas_msgs::Annotation map_annot;
     world_canvas_msgs::AnnotationData map_data;
 
@@ -180,18 +186,16 @@ bool WorldsList::loadGeometricMap(const std::string& world_name)
     map_annot.type = "nav_msgs/OccupancyGrid";
     map_annot.pose.header.frame_id = "/map";  // TODO  part of world????
     map_annot.pose.pose.pose.orientation.w = 1.0;  // Avoid non-normalized quaternions
-    map_annot.shape = visualization_msgs::Marker::TEXT_VIEW_FACING; // reasonable default
-  //  map_annot.color.a = 0.5;  // Avoid a rather confusing invisible shape
+    map_annot.shape = visualization_msgs::Marker::TEXT_VIEW_FACING;
+    // Note that map annotations are invisible, as they have 0 size and transparent color
     map_data.id = map_annot.data_id;
     map_data.type = map_annot.type;
-  //  map_data.data =
 
     std::size_t size = ros::serialization::serializationLength(map);
     if (size <= 0)
       throw ros::Exception("Non-positive serialization length");
 
-    // we convert the message into a string because that is easy to sent back & forth with Python
-    // This is fine since C0x because &string[0] is guaranteed to point to a contiguous block of memory
+    // Serialize the map message; we must manually handle the message size (first 4 bytes)
     map_data.data.resize(size + 4);
     *reinterpret_cast<uint32_t*>(&map_data.data[0]) = size;
     ros::serialization::OStream stream_arg(reinterpret_cast<uint8_t*>(&map_data.data[4]), size);
