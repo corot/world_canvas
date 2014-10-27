@@ -247,16 +247,16 @@ class YAMLDatabase:
                 else:
                     # I must use default_flow_style = False so the resulting YAML looks nice, but then
                     # the bloody dumper writes lists with an element per-line, (with -), what makes the
-                    # output very long and not very readable. So method flowStyleLists makes uuids and
-                    # covariances list flow-styled, i.e. [x, y, z, ...], while flowStyleOccGrid to the
+                    # output very long and not very readable. So method flow_style_lists makes uuids and
+                    # covariances list flow-styled, i.e. [x, y, z, ...], while flow_style_occ_grid to the
                     # same for occupancy grids (maps), but can be easily modified for other big messages
                     dump = yaml.dump(entries, default_flow_style=False)
-                    dump = self.flowStyleLists(dump)
-                    dump = self.flowStyleOccGrid(dump)
+                    dump = self.flow_style_lists(dump)
+                    dump = self.flow_style_occ_grid(dump)
                     
                     # Add a decimal point to exponential formated floats; if not, get loaded as strings,
                     # due to a bug in pyyaml. See this ticket for details: http://pyyaml.org/ticket/359
-                    dump = self.removeExp(dump)
+                    dump = self.fix_exp_numbers(dump)
                     f.write(dump)
                     return self.service_success(response, "%lu annotations exported from database" % len(entries))
         except Exception as e:
@@ -279,23 +279,21 @@ class YAMLDatabase:
         response.result = False
         return response
 
-    def removeExp(self, target):
+    def fix_exp_numbers(self, target):
         # Compose and compile regex to match exponential notation floats without floating point
-        regex = '([-+]?\d+[eE][-+]?\d+)'
+        regex = '( [-+]?\d+[eE][-+]?\d+)'
         offset = 0
         comp_re = re.compile(regex)
         for match in comp_re.finditer(target):
             # Replace matches with a the same float plus a .0 to make pyyaml parser happy
             fp_nb = match.group(1)
             fp_nb = re.sub('[eE]', '.0e', fp_nb)
-            # print target[match.start(1) + offset:match.end(1) + offset]
             target = target[:match.start(1) + offset] + fp_nb + target[match.end(1) + offset:]
-            # print target[match.start(1) + offset:match.end(1) + offset+2]
             offset += 2
 
         return target
     
-    def flowStyleLists(self, target):
+    def flow_style_lists(self, target):
         # Compose and compile regex to match uuids: lists of 16 integers
         regex = 'uuid: *\n'
         for i in range(0, 16):
@@ -334,10 +332,10 @@ class YAMLDatabase:
 
         return target
     
-    def flowStyleOccGrid(self, target):
+    def flow_style_occ_grid(self, target):
         # Compose and compile regex to match 'data:' + a lists of 10 or more integers
         # This should apply to other data chunks other than maps; can also replace the
-        # uuid matcher of method flowStyleLists, but I let it TODO
+        # uuid matcher of method flow_style_lists, but I let it TODO
         regex = 'data: *\n( *- +(\d+)\n){10,}'
         comp_re = re.compile(regex)
         while True:
