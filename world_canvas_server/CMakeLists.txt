@@ -6,8 +6,10 @@ find_package(catkin REQUIRED)
 catkin_package()
 
 
-#install(PROGRAMS scripts/add_map.py
-#        DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+FILE(GLOB_RECURSE script_files scripts/*.py)
+
+install(PROGRAMS ${script_files}
+        DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
 install(DIRECTORY launch
         DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})

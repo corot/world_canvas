@@ -35,6 +35,7 @@
 
 import roslib.message
 import rospy
+import genpy
 import os
 import re
 import yaml
