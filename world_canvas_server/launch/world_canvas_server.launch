@@ -8,7 +8,7 @@
     <param name="overwrite" value="false"/>
   </node> -->
 
-  <node pkg="world_canvas_server" type="annotations_server.py" name="world_canvas_server" args="$(arg debug)" output="screen">
+  <node pkg="world_canvas_server" type="world_canvas_server" name="world_canvas_server" args="$(arg debug)" output="screen">
     <param name="start_map_manager" value="true"/>
     <param name="auto_save_map" value="false"/>
   </node> 
