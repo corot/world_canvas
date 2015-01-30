@@ -8,10 +8,11 @@
   </node>
 
   <node pkg="world_canvas_server" type="world_canvas_server" name="world_canvas_server" output="screen">
+    <param name="start_map_manager" value="true"/>
     <param name="auto_save_map" value="false"/>
      <!-- Read the map to save from our private topic -->
      <remap from="map" to="new_map__"/>
-  </node> 
+  </node>
 
   <node pkg="world_canvas_server" type="add_map.py" name="add_map" args="'$(arg map_name)'" required="true"/>
 </launch>
